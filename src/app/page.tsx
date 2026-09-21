@@ -13,10 +13,10 @@ export default function Home() {
             홍길동
           </h1>
           <p className="text-sm font-medium text-blue-600 dark:text-blue-400">
-            바이브 코딩 수강생
+            주니어 소프트웨어 개발자
           </p>
           <p className="text-base text-gray-600 dark:text-gray-300 leading-relaxed pt-2">
-            안녕하세요! 바이브 코딩을 배우고 있는 대학생입니다.
+            안녕하세요! 코드로 아이디어를 현실로 구현하며 성장하는 개발자입니다. 지속적인 학습을 통해 더 나은 사용자 경험과 가치 있는 서비스를 만들어갑니다.
           </p>
         </div>
       </div>
