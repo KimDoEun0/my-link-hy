@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366F1" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#EC4899" />
+    </linearGradient>
+    <linearGradient id="skinGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFDFC4" />
+      <stop offset="100%" stop-color="#F0B58D" />
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="shirtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3B82F6" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.15" />
+    </filter>
+  </defs>
+
+  <!-- Background circle with vibrant gradient -->
+  <circle cx="64" cy="64" r="64" fill="url(#bgGrad)" />
+
+  <!-- Inner subtle glow -->
+  <circle cx="64" cy="64" r="61" fill="none" stroke="#FFFFFF" stroke-opacity="0.25" stroke-width="2" />
+
+  <!-- Body / Hoodie -->
+  <path d="M24 120 C 24 95, 42 84, 64 84 C 86 84, 104 95, 104 120 Z" fill="url(#shirtGrad)" />
+  <!-- Hoodie collar/inner -->
+  <path d="M50 86 Q 64 100 78 86" fill="none" stroke="#1E40AF" stroke-width="3" stroke-linecap="round" />
+
+  <!-- Neck -->
+  <rect x="56" y="70" width="16" height="18" rx="4" fill="url(#skinGrad)" />
+
+  <!-- Head -->
+  <ellipse cx="64" cy="56" rx="24" ry="26" fill="url(#skinGrad)" filter="url(#shadow)" />
+
+  <!-- Hair back/top -->
+  <path d="M38 52 C 38 34, 48 24, 64 24 C 80 24, 90 34, 90 52 C 90 40, 80 30, 64 30 C 48 30, 38 40, 38 52 Z" fill="url(#hairGrad)" />
+  <path d="M38 48 C 44 32, 58 26, 68 28 C 78 30, 88 38, 90 48 C 84 40, 74 36, 64 36 C 52 36, 44 42, 38 48 Z" fill="url(#hairGrad)" />
+
+  <!-- Eyes / Glasses -->
+  <circle cx="53" cy="54" r="7" fill="none" stroke="#1E293B" stroke-width="2.5" />
+  <circle cx="75" cy="54" r="7" fill="none" stroke="#1E293B" stroke-width="2.5" />
+  <line x1="60" y1="54" x2="68" y2="54" stroke="#1E293B" stroke-width="2" />
+  <!-- Eye pupils -->
+  <circle cx="53" cy="54" r="2.5" fill="#0F172A" />
+  <circle cx="75" cy="54" r="2.5" fill="#0F172A" />
+  <circle cx="54" cy="53" r="0.8" fill="#FFFFFF" />
+  <circle cx="76" cy="53" r="0.8" fill="#FFFFFF" />
+
+  <!-- Smile -->
+  <path d="M57 66 Q 64 73 71 66" fill="none" stroke="#B45309" stroke-width="2.2" stroke-linecap="round" />
+  <!-- Cheeks -->
+  <ellipse cx="48" cy="62" rx="3.5" ry="2" fill="#F43F5E" fill-opacity="0.3" />
+  <ellipse cx="80" cy="62" rx="3.5" ry="2" fill="#F43F5E" fill-opacity="0.3" />
+
+  <!-- Sparkles / Tech accents -->
+  <circle cx="28" cy="36" r="2" fill="#FFFFFF" fill-opacity="0.8" />
+  <circle cx="102" cy="42" r="1.5" fill="#FFFFFF" fill-opacity="0.7" />
+  <circle cx="96" cy="28" r="2.5" fill="#FDE047" fill-opacity="0.9" />
+</svg>
