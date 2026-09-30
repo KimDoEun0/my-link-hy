@@ -1,0 +1,101 @@
+import { ProfileConfig, ContentBlock, ThemeConfig } from "@/types/mylink";
+
+export const initialProfile: ProfileConfig = {
+  displayName: "크리에이터 민지",
+  bio: "일상과 테크 라이프스타일을 기록합니다 ✨\n비즈니스 문의는 아래 링크나 메일로 부탁드려요!",
+  avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80",
+  badge: "Creator",
+  socials: {
+    youtube: "https://youtube.com",
+    instagram: "https://instagram.com",
+    tiktok: "https://tiktok.com",
+    github: "https://github.com",
+    email: "minji.creator@example.com",
+  },
+};
+
+export const initialBlocks: ContentBlock[] = [
+  {
+    id: "header-1",
+    type: "header",
+    title: "🔥 대표 채널 & 최신 소식",
+    isVisible: true,
+    order: 1,
+  },
+  {
+    id: "link-1",
+    type: "link",
+    title: "유튜브 채널 바로가기",
+    subtitle: "매주 목요일 저녁 8시 신규 영상 업로드 🎥",
+    url: "https://youtube.com",
+    iconName: "Youtube",
+    badge: "인기",
+    isVisible: true,
+    order: 2,
+  },
+  {
+    id: "link-2",
+    type: "link",
+    title: "인스타그램 일상 & 스토리",
+    subtitle: "실시간 라이프스타일과 비하인드 컷 📸",
+    url: "https://instagram.com",
+    iconName: "Instagram",
+    isVisible: true,
+    order: 3,
+  },
+  {
+    id: "header-2",
+    type: "header",
+    title: "🛍️ 진행 중인 공구 & 추천 아이템",
+    isVisible: true,
+    order: 4,
+  },
+  {
+    id: "link-3",
+    type: "link",
+    title: "2026 데스크테리어 기획전 (최대 35% 할인)",
+    subtitle: "제가 직접 써보고 검증한 추천 제품 모음 💻",
+    url: "https://smartstore.naver.com",
+    iconName: "ShoppingBag",
+    badge: "한정 특가",
+    isVisible: true,
+    order: 5,
+  },
+  {
+    id: "link-4",
+    type: "link",
+    title: "올인원 노션 생산성 템플릿 무료 배포",
+    subtitle: "목표 관리와 루틴을 한눈에 정리하는 템플릿 📝",
+    url: "https://notion.so",
+    iconName: "FileText",
+    isVisible: true,
+    order: 6,
+  },
+  {
+    id: "header-3",
+    type: "header",
+    title: "💬 협업 & 문의",
+    isVisible: true,
+    order: 7,
+  },
+  {
+    id: "link-5",
+    type: "link",
+    title: "비즈니스 및 광고 협업 제안",
+    subtitle: "이메일 또는 제안서 링크로 연락 부탁드립니다 ✉️",
+    url: "mailto:minji.creator@example.com",
+    iconName: "Mail",
+    isVisible: true,
+    order: 8,
+  },
+];
+
+export const initialTheme: ThemeConfig = {
+  presetId: "toss-clean",
+  backgroundStyle: "solid",
+  backgroundColor: "#F2F4F6",
+  buttonShape: "rounded-xl",
+  buttonVariant: "filled",
+  buttonColor: "#FFFFFF",
+  buttonTextColor: "#191F28",
+};
