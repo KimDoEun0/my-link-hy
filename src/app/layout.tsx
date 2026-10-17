@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "홍길동 (Gildong Hong) | 개발자 프로필",
-  description: "아이디어를 현실로 구현하는 프론트엔드 & 풀스택 개발자 홍길동의 프로필입니다.",
+  title: "마이링크 (MyLink) | 크리에이터 멀티링크 프로필",
+  description: "크리에이터를 위한 한국형 멀티링크 바이오 서비스 마이링크(MyLink)입니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="ko"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

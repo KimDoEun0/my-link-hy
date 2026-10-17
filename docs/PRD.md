@@ -1,9 +1,11 @@
 # [PRD] 마이링크 (MyLink) 제품 기능 정의서
 
-**버전**: v1.0.0 (MVP)  
+**버전**: v1.3.0 (shadcn/ui 기반 토스 디자인 시스템(TDS) 구축 사양 확정)  
 **작성일**: 2026-09-30  
+**최종 수정**: 2026-10-07  
 **상태**: 확정 (Approved)  
-**타깃 플랫폼**: 모바일 퍼스트 반응형 웹 (Next.js 16, React 19, Tailwind CSS v4)  
+**타깃 플랫폼**: 모바일 퍼스트 반응형 웹 (Next.js 16, React 19, Tailwind CSS v4, shadcn/ui)  
+**디자인 시스템**: 공식 **shadcn/ui** (https://ui.shadcn.com/) 아키텍처 기반 + **`design.md` 토스 디자인 시스템 (TDS)** 1:1 완벽 이식 및 구축  
 **전역 상태 관리**: Zustand v5 (`persist` 미들웨어 기반 LocalStorage 자동 동기화)  
 **데이터 저장소**: 브라우저 LocalStorage 기반 (추후 DB 확장 가능 구조)  
 
@@ -31,7 +33,7 @@
     2. 크리에이터 프로필 카드 (원형 아바타, 이름, 한 줄 소개)
     3. 소셜 미디어 아이콘 바 (YouTube, Instagram, X 등)
     4. 콘텐츠 블록 렌더링 (URL 링크 버튼 + 섹션 구분 헤더)
-    5. 모바일 최적화 반응형 레이아웃 및 토스 TDS 감성 미니멀 디자인
+    5. 모바일 최적화 반응형 레이아웃 및 shadcn/ui 기반 미니멀 디자인 (토스 TDS 컬러 토큰 융합)
 - **⏳ Phase 2 (추후 확장 단계 - Future Milestones)**:
   - 좌/우 실시간 관리자 에디터 (`/admin`) 및 드래그 앤 드롭 정렬
   - 테마 6종 커스터마이징
@@ -41,16 +43,18 @@
 > **"단 3분 만에 완성하는 크리에이터 맞춤형 브랜드 멀티링크 & 가벼운 로컬 기반 프로필"**
 - **로컬 스토리지 기반 간결성**: 복잡한 서버/DB 설정 없이 브라우저 자체 스토리지로 즉시 구동.
 - **크리에이터 맞춤 블록**: 프로필 + SNS 아이콘 바 + URL 링크 버튼 + 섹션 구분 헤더.
-- **토스 스타일 미니멀 디자인**: 신뢰감을 주는 모바일 퍼스트 UI/UX.
+- **shadcn/ui 기반 미니멀 디자인**: shadcn/ui 컴포넌트 시스템과 토스 감성 UI/UX를 결합하여 신뢰감 있는 모바일 퍼스트 인터페이스 제공.
 
 ### 1.5 기술 스택 및 라이브러리 (Tech Stack)
 | 계층 | 기술 / 라이브러리 | 버전 | 선정 이유 및 역할 |
 | :--- | :--- | :---: | :--- |
 | **Framework** | Next.js (App Router) | 16.x | 최신 React 19 지원, 파일 기반 라우팅(`/`, `/admin`, `/admin/analytics`) 및 번들 최적화 |
 | **Language** | TypeScript | 5.x | 엄격한 타입 정의로 프로필/블록/통계 스키마 무결성 보장 및 런타임 오류 방지 |
-| **Styling** | Tailwind CSS + TDS Tokens | 4.x | 토스 디자인 시스템(TDS) 기반의 정밀한 컬러 토큰 및 유틸리티 기반의 반응형 UI 스타일링 |
+| **Design System** | **shadcn/ui** (공식 표준, Base UI 기반) | 최신 | **[UI 디자인 표준 베이스]**<br>- 향후 모든 UI/UX 디자인 및 컴포넌트 개발은 공식 [shadcn/ui](https://ui.shadcn.com/)를 단일 표준으로 진행<br>- Tailwind CSS v4 완전 호환 및 `components.json` 기반 중앙 관리<br>- 필요 컴포넌트는 `npx shadcn@latest add` CLI로 도입하여 일관성 유지<br>- 임의의 독자 커스텀 컴포넌트 남발을 방지하고 shadcn/ui 컴포넌트 소스를 TDS 디자인 토큰과 결합하여 커스터마이징 |
+| **Design Theme** | **Toss Design System (TDS)** | `design.md` 기반 | shadcn/ui 컴포넌트 위에 TDS 비주얼 언어 적용. 컬러·타이포그래피·라운드·모션·그림자를 `globals.css`의 CSS 변수로 완전 매핑. 별도 TDS 패키지 의존 없이 CSS-only로 구현 |
+| **Styling** | Tailwind CSS | 4.x (최신) | CSS-first 방식 (별도 config 파일 불필요). `@theme inline` 블록에서 TDS 토큰을 Tailwind 유틸리티로 노출 |
 | **State Management** | **Zustand** | 5.x | **[전역 상태 관리 핵심]**<br>- `persist` 미들웨어 내장으로 브라우저 `localStorage`와 자동 양방향 동기화<br>- 선택적 구독(Selector)을 통한 실시간 모바일 프리뷰 초고속 리렌더링 최적화<br>- 약 1KB의 초경량 번들 및 보일러플레이트 제로<br>- 추후 Supabase/서버 DB 연동 시 스토어 내부 구현만 변경하여 손쉽게 마이그레이션 가능 |
-| **Icons** | Lucide React | 최신 | 미니멀하고 일관된 SVG 아이콘 세트 (SNS 아이콘 및 관리자 편집 도구 UI) |
+| **Icons** | Lucide React | 최신 | TDS 아이콘 시스템의 프로토타입 대체재. 24px 그리드·1.5px stroke·rounded caps로 TDS 아이콘과 동일 격자. 미니멀하고 일관된 SVG 아이콘 세트 |
 | **Drag & Drop** | @hello-pangea/dnd (또는 HTML5 D&D) | 최신 | 링크 및 헤더 블록의 직관적인 드래그 앤 드롭 순서 변경 |
 | **Persistence** | Browser LocalStorage | W3C Standard | 별도 외부 DB나 백엔드 서버 없이 브라우저 내에서 즉각 구동 및 영속성 보장 |
 
@@ -368,8 +372,68 @@ export interface AnalyticsData {
 2. **모바일 퍼스트 최적화 (Mobile-First Experience)**:
    - 모바일 브라우저 뷰포트(360px ~ 430px)에서 여백, 터치 영역(최소 44px 이상), 스크롤 모멘텀 최적화.
    - 데스크톱 접속 시에는 스마트폰 비율의 카드 컨테이너로 미려하게 노출.
-3. **토스 디자인 시스템(TDS) 감성 구현**:
-   - 깔끔한 타이포그래피, 가독성 높은 그레이스케일, 신뢰감을 주는 인터랙션 애니메이션 (클릭 리플렉션, 호버 효과).
+3. **shadcn/ui 기반 토스 디자인 시스템(TDS — design.md) 구축 사양**:
+
+   **3.1 구축 대원칙 (Design System Foundation)**:
+   - **아키텍처 베이스**: 모든 UI 컴포넌트는 공식 **[shadcn/ui](https://ui.shadcn.com/)**의 Headless/Accessible 프리미티브(Base UI / Radix)를 기반으로 구축한다.
+   - **비주얼 & 인터랙션**: `design.md`에 정의된 **토스 디자인 시스템(TDS)**의 비주얼 언어(OKLCH 컬러 팔레트, Pretendard 타이포 램프, 4~32px+full 라운드, 미세 알파 섀도우, 120ms 스무스 모션)를 `globals.css` 및 shadcn/ui 컴포넌트 파일에 1:1 매핑하여 구축한다.
+   - **컴포넌트 관리 원칙**: 신규 컴포넌트 필요 시 독자 작성 대신 `npx shadcn@latest add <component>`로 공식 프리미티브를 도입한 뒤, 본 PRD와 `design.md`의 TDS 명세에 맞춰 테마 및 스타일을 확장한다.
+   - **브랜드 무드**: 차갑고 절제된 cool-blue 무채색 화이트 캔버스 + 화면당 단 하나의 대표 CTA에만 예약된 토스 블루(`blue-500`). "은행에 다니는 유능한 친구" 같은 신뢰감 있고 깔끔한 모바일 UX 제공.
+
+   **3.2 TDS 핵심 디자인 토큰 사양 (`design.md` 준수)**:
+   - **컬러 팔레트 (OKLCH)**:
+     - `blue-500`: `oklch(0.620 0.191 258)` (#3182F6) — 카노니컬 Toss Blue, 화면당 1개의 Primary CTA
+     - `blue-600`: `oklch(0.522 0.176 257)` (#2272EB) — 눌림(Pressed) 블루
+     - `blue-700`: `oklch(0.476 0.174 259)` — 프레스 그라디언트 스탑
+     - `blue-50`: `oklch(0.959 0.020 250)` (#E8F3FF) — Brand Weak 배경
+     - `grey-900`: `oklch(0.237 0.020 258)` (#191F28) — Primary 본문 텍스트 (Never pure black)
+     - `grey-800`~`600`: `oklch(0.357~0.562)` — 보조 및 부가 텍스트
+     - `grey-400`: `oklch(0.779 0.016 251)` (#B0B8C1) — Disabled 텍스트, Strong 라인
+     - `grey-200`: `oklch(0.930 0.005 248)` (#E5E8EB) — 기본 1px 헤어라인 디바이더/보더
+     - `grey-100`: `oklch(0.966 0.003 248)` (#F2F4F6) — Secondary 표면(인풋, 보조 버튼 배경)
+     - `grey-50`: `oklch(0.985 0.002 248)` (#F9FAFB) — 페이지 전체 캔버스 배경
+     - `red-500`: `oklch(0.641 0.208 21)` (#F04452) — Error / Danger
+     - `green-500`: `oklch(0.493 0.143 154)` — Success
+     - `yellow-500`: `oklch(0.850 0.154 82)` (#FFC342) — Warning / 토스페이스 일러스트 바디
+     - `press-overlay`: `oklch(0.000 0.000 0 / 0.26)` — 검정 26% 눌림 상태 오버레이
+     - `disabled-opacity`: `0.30` — 비활성화 시 컴포넌트 전체 노드 30% 투명도 적용
+   - **타이포그래피 (Typography)**:
+     - 서체 스택: `"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif`
+     - 행간: 본문 `line-height 1.50`, 제목 `line-height 1.25~1.30`
+     - 자간: 타이트 트래킹 `letter-spacing -0.005em ~ -0.020em`
+     - 숫자 분리: 통계/클릭수 등 수치에는 고정폭 `tabular-nums`, 일반 텍스트에는 `proportional-nums`
+   - **라운드 스케일 (Rounded Hierarchy)**:
+     - `radius-xs` (4px): 스몰 배지
+     - `radius-s` (8px): 인라인 태그
+     - `radius-m` (12px): 텍스트 인풋, M 사이즈 버튼 (40px)
+     - `radius-l` (14px): L 사이즈 버튼 (48px)
+     - `radius-xl` (16px): XL 버튼 (56px), 표준 카드 컨테이너
+     - `radius-2xl` (20px): 모달 다이얼로그, 바텀시트 상단
+     - `radius-full` (999px): 칩(Chip), 알약 필터, 프로필 아바타
+   - **그림자 (Elevation & Depth)**:
+     - 평면 표면 기본 (장식성 그림자 배제), 모달/플로팅/토스트 표면에만 navy-900 기반 미세 알파 적용
+     - `shadow-1`: `0 1px 2px oklch(0.155 0.060 261 / 0.04), 0 1px 1px oklch(0.155 0.060 261 / 0.04)` (메뉴/카드)
+     - `shadow-2`: `0 4px 12px oklch(0.155 0.060 261 / 0.06)` (툴팁)
+     - `shadow-3`: `0 12px 32px oklch(0.155 0.060 261 / 0.10)` (다이얼로그)
+     - `shadow-toast`: `0 8px 24px oklch(0.155 0.060 261 / 0.16)` (토스트)
+   - **모션 (Motion)**:
+     - 기본 감속 곡선: `cubic-bezier(0.22, 0.61, 0.36, 1)`
+     - 120ms 버튼 프레스 인터랙션 (`active:scale-[0.98]` + `transition-all duration-120`)
+     - 과도한 바운스/오버슈트 금지, 스켈레톤 쉬머 대신 차분한 3-dot 또는 즉각 전환 적용
+
+   **3.3 shadcn/ui 컴포넌트별 TDS 구축 명세**:
+   | 컴포넌트 | shadcn/ui 프리미티브 | TDS 세부 규격 (`design.md`) | 적용 스타일 및 클래스 |
+   | :--- | :--- | :--- | :--- |
+   | **Button** | `Button` | XL(56px, r16, 17px Bold)<br>L(48px, r14, 17px Bold)<br>M(40px, r12, 15px Semibold)<br>S(32px, r10, 13px Semibold) | - Primary: `bg-primary text-white hover:bg-[oklch(0.522_0.176_257)]`<br>- Secondary: `bg-secondary text-foreground hover:bg-[oklch(0.930_0.005_248)]`<br>- Danger: `bg-destructive text-white`<br>- Ghost: `text-primary hover:bg-accent`<br>- Motion: `duration-120 active:scale-[0.98]`<br>- Disabled: `disabled:opacity-30` |
+   | **Bottom CTA** | `Button` (Variant) | 화면 하단 고정 56pt 버튼, 24~32px 상단 페이드 보호 그라디언트 (`white → transparent`) | 모바일 뷰포트 하단 고정, `env(safe-area-inset-bottom)` 여백 자동 보정 |
+   | **Card** | `Card` | 평면 화이트 표면 + 16~20px 라운드 + 1px grey-200 헤어라인 보더 | `bg-card rounded-2xl border border-border shadow-[var(--tds-shadow-1)]` |
+   | **Input** | `Input` (Text Field) | 48px 높이, 12px 라운드, grey-100 휴식 배경, 1px grey-200 보더 | 포커스 시 `bg-white border-[1.5px] border-primary ring-0`, 에러 시 `border-destructive` |
+   | **Badge / Chip** | `Badge` | Badge: 22px 높이, 6px 라운드 (시맨틱 washed 배경)<br>Chip: 34px 높이, 999px 풀 필 (보더 1px, active 시 grey-900 반전) | `rounded-full text-xs font-semibold px-2.5 py-0.5` |
+   | **Avatar** | `Avatar` | 44px~80px 원형, grey-100 기본 배경, 깨끗한 이미지 핏 | `rounded-full bg-secondary overflow-hidden` |
+   | **Dialog / Sheet** | `Dialog` / `Sheet` | 다이얼로그 20px 라운드, 바텀시트 20~24px 상단 라운드 + 56% 검정 scrim | `rounded-2xl p-6 bg-white shadow-[var(--tds-shadow-3)]` |
+   | **Toast** | `Toast` (Sonner) | 14px 라운드, grey-900 표면 + 흰색 텍스트, toast 섀도우 | `bg-[var(--tds-grey-900)] text-white rounded-xl shadow-[var(--tds-shadow-toast)]` |
+   | **Icon** | `lucide-react` | 24px 그리드, 1.5px stroke, rounded caps (TDS 아이콘 격자 대체재) | `currentColor` 상속, 외부 임의 컬러 주입 지양 |
+
 4. **Zustand 기반 반응형 데이터 레이어 (Store with Persist)**:
    - 전역 상태 관리 라이브러리인 Zustand의 `persist` 미들웨어를 활용하여 LocalStorage에 안전하게 자동 저장/복원.
    - 추후 백엔드 도입 시 스토어 내부 구현을 REST API 또는 Supabase 비동기 액션으로 1:1 교체 가능하도록 설계.

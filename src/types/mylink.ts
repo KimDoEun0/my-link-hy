@@ -9,6 +9,7 @@ export interface SocialLinks {
   email?: string;
   chzzk?: string;
   blog?: string;
+  threads?: string;
 }
 
 export interface ProfileConfig {
@@ -49,4 +50,17 @@ export interface ThemeConfig {
   buttonVariant: "filled" | "outline" | "shadow";
   buttonColor: string;
   buttonTextColor: string;
+}
+
+export interface DailyMetric {
+  date: string;
+  views: number;
+  clicks: number;
+}
+
+export interface AnalyticsData {
+  totalViews: number;
+  totalClicks: number;
+  blockClicks: Record<string, number>;
+  daily?: DailyMetric[];
 }
