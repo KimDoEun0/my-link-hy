@@ -56,7 +56,8 @@ import {
 export type NewBlockInput = Omit<ContentBlock, "id" | "order">;
 
 interface AddLinkDialogProps {
-  onAdd: (block: NewBlockInput) => void;
+  // 저장이 비동기(Firestore 등)면 Promise를 반환하고, 실패 시 예외를 던짐
+  onAdd: (block: NewBlockInput) => void | Promise<void>;
   onSuccessToast?: (msg: string) => void;
   triggerButton?: React.ReactNode;
   // 외부에서 열림 상태를 제어할 때 사용 (지정 시 트리거 버튼을 렌더링하지 않음)
@@ -105,8 +106,9 @@ export function AddLinkDialog({
     reset,
     setValue,
     clearErrors,
+    setError,
     control,
-    formState: { errors },
+    formState: { errors, isSubmitting },
   } = useForm<LinkFormValues>({
     resolver: zodResolver(linkFormSchema),
     defaultValues: linkFormDefaults,
@@ -140,27 +142,31 @@ export function AddLinkDialog({
   };
 
   // 검증을 통과한 값만 들어옴 (zod에서 trim 처리 완료)
-  const onSubmit = (data: LinkFormValues) => {
-    if (data.blockType === "header") {
-      onAdd({
-        type: "header",
-        title: data.title,
-        isVisible: true,
-      });
-      onSuccessToast?.("새로운 섹션 헤더가 추가되었어요 📑");
-    } else {
-      onAdd({
-        type: "link",
-        title: data.title,
-        url: normalizeUrl(data.url),
-        subtitle: data.subtitle || undefined,
-        iconName: data.iconName || "Favicon",
-        badge: data.badge || undefined,
-        isVisible: true,
-      });
-      onSuccessToast?.("새로운 링크가 추가되었어요 ✨");
+  // 저장이 끝난 뒤에만 성공 안내 후 닫고, 실패하면 다이얼로그를 유지한 채 오류 표시
+  const onSubmit = async (data: LinkFormValues) => {
+    const block: NewBlockInput =
+      data.blockType === "header"
+        ? { type: "header", title: data.title, isVisible: true }
+        : {
+            type: "link",
+            title: data.title,
+            url: normalizeUrl(data.url),
+            subtitle: data.subtitle || undefined,
+            iconName: data.iconName || "Favicon",
+            badge: data.badge || undefined,
+            isVisible: true,
+          };
+
+    try {
+      await onAdd(block);
+    } catch {
+      setError("root", { message: "저장에 실패했어요. 잠시 후 다시 시도해주세요." });
+      return;
     }
 
+    onSuccessToast?.(
+      data.blockType === "header" ? "새로운 섹션 헤더가 추가되었어요 📑" : "새로운 링크가 추가되었어요 ✨"
+    );
     setOpen(false);
     resetForm();
   };
@@ -445,6 +451,10 @@ export function AddLinkDialog({
             )}
           </div>
 
+          {errors.root && (
+            <p className="text-[12px] text-destructive font-medium text-center">{errors.root.message}</p>
+          )}
+
           <DialogFooter className="pt-3">
             <DialogClose
               render={
@@ -462,9 +472,10 @@ export function AddLinkDialog({
               type="submit"
               variant="default"
               size="default"
+              disabled={isSubmitting}
               className="w-full sm:w-auto bg-primary text-primary-foreground font-semibold"
             >
-              저장
+              {isSubmitting ? "저장 중..." : "저장"}
             </Button>
           </DialogFooter>
         </form>

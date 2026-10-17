@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMyLinkStore } from "@/lib/useMyLinkStore";
 import { initialProfile, initialBlocks } from "@/data/initialData";
 import type { ContentBlock } from "@/types/mylink";
+import { addLink, deleteLink } from "@/lib/linksFirestore";
 import {
   SectionHeader,
   LinkCard,
@@ -31,8 +32,11 @@ export default function ProfilePage() {
   // Blog 카드 클릭 시 열리는 "새 링크 추가" 다이얼로그 상태
   const [blogDialogOpen, setBlogDialogOpen] = useState(false);
 
-  // 로컬 상태 관리: 링크 목록을 useState로 관리 (추가 시 UI에 즉시 반영)
+  // 기본 예시 블록 (코드 내 초기 데이터)
   const [blocks, setBlocks] = useState<ContentBlock[]>(initialBlocks);
+  // 이번 세션에서 Firestore(users/anonymous/links)에 저장한 링크 목록
+  // (Firestore 읽기 로직은 아직 미구현이므로 새로고침 시에는 표시되지 않음)
+  const [savedLinks, setSavedLinks] = useState<ContentBlock[]>([]);
 
   const storeProfile = useMyLinkStore((state) => state.profile);
   const recordView = useMyLinkStore((state) => state.recordView);
@@ -87,19 +91,31 @@ export default function ProfilePage() {
     recordClick(blockId);
   };
 
-  // 다이얼로그에서 전달받은 새 링크를 목록 끝에 추가
-  const handleAddBlock = (newBlock: NewBlockInput) => {
-    setBlocks((prev) => {
-      const maxOrder = prev.reduce((max, b) => Math.max(max, b.order || 0), 0);
-      return [
-        ...prev,
-        { ...newBlock, id: `link-${Date.now()}`, order: maxOrder + 1 },
-      ];
-    });
+  // 새 링크 추가: 링크 객체 생성 → Firestore(users/anonymous/links)에 저장 → 로컬 상태 업데이트
+  // 저장 실패 시 예외를 그대로 던져 다이얼로그에서 오류를 표시
+  const handleAddLink = async (newBlock: NewBlockInput) => {
+    // 1. 링크 객체 생성
+    const link: NewBlockInput = { ...newBlock, isVisible: true };
+
+    // 2. Firestore에 저장 (생성된 문서 id를 링크 id로 사용)
+    const id = await addLink(link);
+
+    // 3. 로컬 상태 업데이트 → 목록에 즉시 반영
+    setSavedLinks((prev) => [...prev, { ...link, id, order: prev.length }]);
   };
 
   const handleDeleteBlock = (blockId: string) => {
-    setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+    const isSavedLink = savedLinks.some((link) => link.id === blockId);
+    if (isSavedLink) {
+      // Firestore에 저장된 링크는 문서 삭제
+      deleteLink(blockId)
+        .then(() => setSavedLinks((prev) => prev.filter((b) => b.id !== blockId)))
+        .catch(() => {
+          showToast("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+        });
+    } else {
+      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
+    }
     showToast("항목이 삭제되었어요 🗑️");
   };
 
@@ -110,10 +126,11 @@ export default function ProfilePage() {
     }
   };
 
-  // Filter visible blocks and sort by order
-  const visibleBlocks = blocks
-    .filter((b) => b.isVisible !== false)
-    .sort((a, b) => a.order - b.order);
+  // 기본 예시 블록(순서 정렬) 뒤에 Firestore 저장 링크(생성 순서)를 이어서 표시
+  const visibleBlocks = [
+    ...[...blocks].sort((a, b) => a.order - b.order),
+    ...savedLinks,
+  ].filter((b) => b.isVisible !== false);
 
   return (
     <div className="min-h-screen bg-white py-6 sm:py-10 px-4 flex justify-center font-[-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif] selection:bg-accent selection:text-primary">
@@ -138,7 +155,7 @@ export default function ProfilePage() {
 
         {/* 상단 1. '+ 새로운 링크 추가하기' 파란색 직사각형 버튼 (다이얼로그 트리거) */}
         <AddLinkDialog
-          onAdd={handleAddBlock}
+          onAdd={handleAddLink}
           onSuccessToast={showToast}
           triggerButton={
             <button
@@ -207,7 +224,7 @@ export default function ProfilePage() {
         simple
         open={blogDialogOpen}
         onOpenChange={setBlogDialogOpen}
-        onAdd={handleAddBlock}
+        onAdd={handleAddLink}
         onSuccessToast={showToast}
       />
 
