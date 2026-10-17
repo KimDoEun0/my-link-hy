@@ -22,10 +22,10 @@ function stripUndefined<T extends object>(data: T): Partial<T> {
   ) as Partial<T>;
 }
 
-// 링크 추가: users/anonymous/links에 새 문서 생성
+// 링크 추가: users/anonymous/links에 새 문서 생성 (title, url, createdAt만 저장)
 export async function addLink(link: NewLinkData): Promise<string> {
   const ref = await addDoc(linksCollection, {
-    ...stripUndefined(link),
+    ...stripUndefined({ title: link.title, url: link.url }),
     createdAt: serverTimestamp(),
   });
   return ref.id;
