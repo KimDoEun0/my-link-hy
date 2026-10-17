@@ -1,4 +1,4 @@
-import { ArrowUpRight, Trash2 } from "lucide-react";
+import { ArrowUpRight, Loader2, Trash2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getBlockIcon } from "@/components/icons";
@@ -19,6 +19,8 @@ export interface LinkCardProps {
   onDelete?: (id: string) => void;
   // 지정 시 URL로 이동하지 않고 이 동작을 실행 (예: 다이얼로그 열기)
   onCardClick?: (id: string) => void;
+  // 삭제 처리 중: 카드를 흐리게 하고 클릭을 막으며 삭제 버튼 자리에 스피너 표시
+  isDeleting?: boolean;
 }
 
 export function LinkCard({
@@ -34,12 +36,17 @@ export function LinkCard({
   onClick,
   onDelete,
   onCardClick,
+  isDeleting = false,
 }: LinkCardProps) {
   // "Favicon" 아이콘이면 Google 파비콘 API로 사이트 아이콘을 자동 표시
   const useFavicon = iconName?.toLowerCase() === "favicon";
   const iconStyle = getBlockIcon(iconName || title);
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (isDeleting) {
+      e.preventDefault();
+      return;
+    }
     if (onCardClick) {
       e.preventDefault();
       onCardClick(id);
@@ -56,7 +63,11 @@ export function LinkCard({
       target="_blank"
       rel="noopener noreferrer"
       onClick={handleClick}
-      className="block group select-none no-underline outline-none"
+      aria-busy={isDeleting}
+      className={cn(
+        "block group select-none no-underline outline-none",
+        isDeleting && "opacity-50 pointer-events-none"
+      )}
     >
       <div
         className={cn(
@@ -87,7 +98,11 @@ export function LinkCard({
 
         {/* 우측 액션 / 대칭 스페이스 (w-10으로 좌측과 대칭 유지) */}
         <div className="w-10 flex items-center justify-end shrink-0">
-          {onDelete && (
+          {isDeleting ? (
+            <span role="status" aria-label="삭제 중" className="size-8 flex items-center justify-center">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            </span>
+          ) : onDelete && (
             <button
               type="button"
               onClick={(e) => {

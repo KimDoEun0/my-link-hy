@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useMyLinkStore } from "@/lib/useMyLinkStore";
-import { initialProfile, initialBlocks } from "@/data/initialData";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { db } from "@/lib/firestore";
+import { initialProfile } from "@/data/initialData";
 import type { ContentBlock } from "@/types/mylink";
 import { addLink, deleteLink } from "@/lib/linksFirestore";
 import {
@@ -10,10 +12,11 @@ import {
   LinkCard,
   ProfileToast,
   AddLinkDialog,
+  LinkCardSkeleton,
   type NewBlockInput,
 } from "@/components/profile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Plus, RotateCcw, User } from "lucide-react";
+import { Plus, User } from "lucide-react";
 
 // 상단 프로필 영역에 표시할 정보 (이름 · 아이디 · 소개)
 const PROFILE_INFO = {
@@ -22,21 +25,62 @@ const PROFILE_INFO = {
   bio: "Frontend Developer | 바이브 코딩 실습 중\n나만의 링크를 모아두는 공간 ✨",
 };
 
-// 클릭 시 사이트 이동 대신 "새 링크 추가" 다이얼로그를 여는 Blog 카드 id
-const BLOG_BLOCK_ID = "link-3";
-
 export default function ProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
-  // Blog 카드 클릭 시 열리는 "새 링크 추가" 다이얼로그 상태
-  const [blogDialogOpen, setBlogDialogOpen] = useState(false);
 
-  // 기본 예시 블록 (코드 내 초기 데이터)
-  const [blocks, setBlocks] = useState<ContentBlock[]>(initialBlocks);
-  // 이번 세션에서 Firestore(users/anonymous/links)에 저장한 링크 목록
-  // (Firestore 읽기 로직은 아직 미구현이므로 새로고침 시에는 표시되지 않음)
-  const [savedLinks, setSavedLinks] = useState<ContentBlock[]>([]);
+  // 링크 목록 (더미 데이터 없이 빈 배열로 시작, Firestore에서 불러온 데이터로 채움)
+  const [links, setLinks] = useState<ContentBlock[]>([]);
+  // 첫 로드(Firestore 조회) 중 여부
+  const [isLoading, setIsLoading] = useState(true);
+  // 삭제 처리 중인 링크 id 목록
+  const [deletingIds, setDeletingIds] = useState<string[]>([]);
+
+  // 컴포넌트 마운트 시 Firestore(users/anonymous/links)에서 링크를 1회 조회 (실시간 구독 아님)
+  useEffect(() => {
+    let ignore = false;
+
+    const loadLinks = async () => {
+      try {
+        const linksQuery = query(
+          collection(db, "users", "anonymous", "links"),
+          orderBy("createdAt", "desc") // createdAt 기준 최신순
+        );
+        const snapshot = await getDocs(linksQuery);
+        if (ignore) return;
+
+        // 서버에 연결하지 못하면 getDocs는 오류 대신 캐시 결과를 반환하므로 별도로 안내
+        if (snapshot.metadata.fromCache) {
+          setToastMessage("서버에 연결하지 못해 링크를 불러오지 못했어요.");
+          setToastVisible(true);
+        }
+
+        setLinks(
+          snapshot.docs.map((doc, index) => ({
+            id: doc.id,
+            type: "link",
+            title: doc.data().title ?? "",
+            url: doc.data().url,
+            iconName: "Favicon", // 저장된 링크는 Google 파비콘으로 표시
+            isVisible: true,
+            order: index,
+          }))
+        );
+      } catch {
+        if (ignore) return;
+        setToastMessage("저장된 링크를 불러오지 못했어요.");
+        setToastVisible(true);
+      } finally {
+        if (!ignore) setIsLoading(false);
+      }
+    };
+
+    loadLinks();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const storeProfile = useMyLinkStore((state) => state.profile);
   const recordView = useMyLinkStore((state) => state.recordView);
@@ -100,37 +144,29 @@ export default function ProfilePage() {
     // 2. Firestore에 저장 (생성된 문서 id를 링크 id로 사용)
     const id = await addLink(link);
 
-    // 3. 로컬 상태 업데이트 → 목록에 즉시 반영
-    setSavedLinks((prev) => [...prev, { ...link, id, order: prev.length }]);
+    // 3. 로컬 상태 업데이트 → 최신순 목록이므로 맨 앞에 추가하여 UI에 즉시 반영
+    setLinks((prev) => [{ ...link, id, order: -1 }, ...prev]);
   };
 
+  // 링크 삭제: Firestore 문서 삭제 후 로컬 상태에서도 제거
   const handleDeleteBlock = (blockId: string) => {
-    const isSavedLink = savedLinks.some((link) => link.id === blockId);
-    if (isSavedLink) {
-      // Firestore에 저장된 링크는 문서 삭제
-      deleteLink(blockId)
-        .then(() => setSavedLinks((prev) => prev.filter((b) => b.id !== blockId)))
-        .catch(() => {
-          showToast("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
-        });
-    } else {
-      setBlocks((prev) => prev.filter((b) => b.id !== blockId));
-    }
-    showToast("항목이 삭제되었어요 🗑️");
+    if (deletingIds.includes(blockId)) return; // 중복 클릭 방지
+    setDeletingIds((prev) => [...prev, blockId]);
+
+    deleteLink(blockId)
+      .then(() => {
+        setLinks((prev) => prev.filter((b) => b.id !== blockId));
+        showToast("항목이 삭제되었어요 🗑️");
+      })
+      .catch(() => {
+        showToast("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+      })
+      .finally(() => {
+        setDeletingIds((prev) => prev.filter((id) => id !== blockId));
+      });
   };
 
-  const handleResetData = () => {
-    if (window.confirm("초기 샘플 데이터로 복원하시겠습니까?")) {
-      setBlocks(initialBlocks);
-      showToast("초기 데이터로 복원되었어요 🔄");
-    }
-  };
-
-  // 기본 예시 블록(순서 정렬) 뒤에 Firestore 저장 링크(생성 순서)를 이어서 표시
-  const visibleBlocks = [
-    ...[...blocks].sort((a, b) => a.order - b.order),
-    ...savedLinks,
-  ].filter((b) => b.isVisible !== false);
+  const visibleBlocks = links.filter((b) => b.isVisible !== false);
 
   return (
     <div className="min-h-screen bg-white py-6 sm:py-10 px-4 flex justify-center font-[-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif] selection:bg-accent selection:text-primary">
@@ -169,7 +205,19 @@ export default function ProfilePage() {
         />
 
         {/* 상단 2. 링크 카드 리스트 (이미지 레이아웃) */}
-        <div className="space-y-3.5">
+        <div className="space-y-3.5" aria-busy={isLoading}>
+          {/* 첫 로드 중: 스켈레톤 카드 */}
+          {isLoading &&
+            Array.from({ length: 3 }, (_, i) => <LinkCardSkeleton key={`skeleton-${i}`} />)}
+
+          {/* 불러온 링크가 없을 때 안내 */}
+          {!isLoading && visibleBlocks.length === 0 && (
+            <div className="py-10 text-center border border-dashed border-[#E5E8EB] rounded-none sm:rounded-[2px]">
+              <p className="text-[15px] font-semibold text-[#4E5968]">아직 추가된 링크가 없어요</p>
+              <p className="mt-1 text-[13px] text-[#8B95A1]">위의 버튼으로 첫 링크를 추가해 보세요</p>
+            </div>
+          )}
+
           {visibleBlocks.map((block) => {
             if (block.type === "header") {
               return (
@@ -193,22 +241,14 @@ export default function ProfilePage() {
                 iconName={block.iconName}
                 onClick={handleLinkClick}
                 onDelete={handleDeleteBlock}
-                onCardClick={block.id === BLOG_BLOCK_ID ? () => setBlogDialogOpen(true) : undefined}
+                isDeleting={deletingIds.includes(block.id)}
               />
             );
           })}
         </div>
 
-        {/* 하단 보조 액션 (초기 데이터 복원 및 공유) */}
-        <div className="pt-6 pb-8 flex items-center justify-between text-xs text-muted-foreground/60 px-1 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={handleResetData}
-            className="flex items-center gap-1 hover:text-foreground transition-colors"
-          >
-            <RotateCcw className="w-3 h-3" />
-            초기 예시 데이터 복원
-          </button>
+        {/* 하단 보조 액션 (공유) */}
+        <div className="pt-6 pb-8 flex items-center justify-end text-xs text-muted-foreground/60 px-1 border-t border-gray-100">
           <button
             type="button"
             onClick={handleShare}
@@ -218,15 +258,6 @@ export default function ProfilePage() {
           </button>
         </div>
       </div>
-
-      {/* Blog 카드 클릭 시: 제목과 URL을 입력하는 "새 링크 추가" 다이얼로그 */}
-      <AddLinkDialog
-        simple
-        open={blogDialogOpen}
-        onOpenChange={setBlogDialogOpen}
-        onAdd={handleAddLink}
-        onSuccessToast={showToast}
-      />
 
       {/* TDS Toast 알림 */}
       <ProfileToast
