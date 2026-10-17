@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="100%" height="100%">
+  <!-- 토스 블루 톤에 맞춘 귀여운 프로필 캐릭터 -->
+  <defs>
+    <clipPath id="circle">
+      <circle cx="64" cy="64" r="64" />
+    </clipPath>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8F3FF" />
+      <stop offset="100%" stop-color="#C9E2FF" />
+    </linearGradient>
+  </defs>
+
+  <g clip-path="url(#circle)">
+    <!-- 배경 -->
+    <rect width="128" height="128" fill="url(#bg)" />
+
+    <!-- 반짝이 장식 -->
+    <path d="M22 34 l2 5 l5 2 l-5 2 l-2 5 l-2 -5 l-5 -2 l5 -2 z" fill="#3182F6" opacity="0.55" />
+    <path d="M104 26 l1.5 3.5 l3.5 1.5 l-3.5 1.5 l-1.5 3.5 l-1.5 -3.5 l-3.5 -1.5 l3.5 -1.5 z" fill="#3182F6" opacity="0.4" />
+    <circle cx="108" cy="52" r="2.2" fill="#3182F6" opacity="0.35" />
+    <circle cx="18" cy="60" r="1.8" fill="#3182F6" opacity="0.3" />
+
+    <!-- 몸 (토스 블루 후드티) -->
+    <path d="M22 132 C22 106 40 94 64 94 C88 94 106 106 106 132 Z" fill="#3182F6" />
+    <!-- 후드 끈 -->
+    <path d="M56 100 L55 114" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" />
+    <path d="M72 100 L73 114" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" />
+    <circle cx="55" cy="115.5" r="2" fill="#FFFFFF" />
+    <circle cx="73" cy="115.5" r="2" fill="#FFFFFF" />
+
+    <!-- 목 -->
+    <rect x="57" y="84" width="14" height="14" rx="6" fill="#F7CDB0" />
+
+    <!-- 귀 -->
+    <circle cx="35" cy="64" r="6" fill="#FFDCC4" />
+    <circle cx="93" cy="64" r="6" fill="#FFDCC4" />
+
+    <!-- 얼굴 -->
+    <ellipse cx="64" cy="61" rx="30" ry="28.5" fill="#FFE4D1" />
+
+    <!-- 머리카락 -->
+    <path d="M33 62 C31 38 46 26 64 26 C82 26 97 38 95 62 C92 54 86 48 78 46 C74 52 64 55 52 53 C46 54 39 57 33 62 Z" fill="#3B2F2F" />
+    <!-- 바보털 -->
+    <path d="M63 27 C60 17 68 12 74 16 C68 17 66 21 67 27 Z" fill="#3B2F2F" />
+    <!-- 머리 하이라이트 -->
+    <path d="M48 35 C53 31 59 30 64 30" stroke="#5A4848" stroke-width="2.5" stroke-linecap="round" fill="none" />
+
+    <!-- 눈 -->
+    <ellipse cx="52" cy="66" rx="3.6" ry="4.4" fill="#191F28" />
+    <ellipse cx="76" cy="66" rx="3.6" ry="4.4" fill="#191F28" />
+    <circle cx="53.4" cy="64.3" r="1.4" fill="#FFFFFF" />
+    <circle cx="77.4" cy="64.3" r="1.4" fill="#FFFFFF" />
+
+    <!-- 볼터치 -->
+    <ellipse cx="44" cy="75" rx="5.5" ry="3.3" fill="#FF9EA8" opacity="0.6" />
+    <ellipse cx="84" cy="75" rx="5.5" ry="3.3" fill="#FF9EA8" opacity="0.6" />
+
+    <!-- 입 -->
+    <path d="M59 75 Q64 80 69 75" stroke="#191F28" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  </g>
+</svg>

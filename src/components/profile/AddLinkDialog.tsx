@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
   DialogTrigger,
@@ -13,12 +15,28 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useMyLinkStore } from "@/lib/useMyLinkStore";
+import type { ContentBlock } from "@/types/mylink";
+import { FaviconImage } from "./FaviconImage";
+import {
+  linkFormSchema,
+  linkFormDefaults,
+  normalizeUrl,
+  TITLE_MAX,
+  SUBTITLE_MAX,
+  BADGE_MAX,
+  type LinkFormValues,
+} from "@/lib/linkFormSchema";
 import {
   YoutubeIcon,
   InstagramIcon,
   TikTokIcon,
   GithubIcon,
+  InstagramBadgeIcon,
+  YoutubeBadgeIcon,
+  VelogBlogIcon,
+  GithubBadgeIcon,
+  PortfolioGlobeIcon,
+  Symbol123Icon,
 } from "@/components/icons";
 import {
   Plus,
@@ -34,56 +52,79 @@ import {
   Sparkles,
 } from "lucide-react";
 
+// 부모 컴포넌트로 전달할 새 블록 데이터 (id, order는 부모에서 부여)
+export type NewBlockInput = Omit<ContentBlock, "id" | "order">;
+
 interface AddLinkDialogProps {
+  onAdd: (block: NewBlockInput) => void;
   onSuccessToast?: (msg: string) => void;
   triggerButton?: React.ReactNode;
+  // 외부에서 열림 상태를 제어할 때 사용 (지정 시 트리거 버튼을 렌더링하지 않음)
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  // 간단 모드: 제목과 URL만 입력받는 "새 링크 추가" 다이얼로그
+  simple?: boolean;
 }
 
 const AVAILABLE_ICONS = [
-  { id: "Youtube", label: "유튜브", icon: <YoutubeIcon className="w-4 h-4 text-red-500" /> },
-  { id: "Instagram", label: "인스타", icon: <InstagramIcon className="w-4 h-4 text-pink-500" /> },
-  { id: "Video", label: "숏폼/틱톡", icon: <TikTokIcon className="w-4 h-4 text-neutral-800" /> },
+  { id: "Favicon", label: "자동(파비콘)", icon: <Globe className="w-5 h-5 text-primary" /> },
+  { id: "Instagram", label: "인스타그램", icon: <InstagramBadgeIcon className="w-5 h-5" /> },
+  { id: "Youtube", label: "유튜브", icon: <YoutubeBadgeIcon className="w-5 h-5" /> },
+  { id: "Blog", label: "블로그", icon: <VelogBlogIcon className="w-5 h-5" /> },
+  { id: "github", label: "깃허브", icon: <GithubBadgeIcon className="w-5 h-5" /> },
+  { id: "Portfolio", label: "포트폴리오", icon: <PortfolioGlobeIcon className="w-5 h-5" /> },
+  { id: "123", label: "123 심볼", icon: <Symbol123Icon className="w-5 h-5" /> },
+  { id: "Link2", label: "일반 링크", icon: <Link2 className="w-5 h-5 text-neutral-500" /> },
   { id: "ShoppingBag", label: "마켓", icon: <ShoppingBag className="w-4 h-4 text-orange-500" /> },
-  { id: "ShoppingCart", label: "쇼핑", icon: <ShoppingCart className="w-4 h-4 text-amber-500" /> },
   { id: "FileText", label: "노션/문서", icon: <FileText className="w-4 h-4 text-blue-500" /> },
-  { id: "BookOpen", label: "강의/책", icon: <BookOpen className="w-4 h-4 text-emerald-500" /> },
-  { id: "Clapperboard", label: "미디어", icon: <Clapperboard className="w-4 h-4 text-indigo-500" /> },
   { id: "Mail", label: "메일", icon: <Mail className="w-4 h-4 text-sky-500" /> },
-  { id: "MessageCircle", label: "카카오톡", icon: <MessageCircle className="w-4 h-4 text-yellow-600" /> },
-  { id: "github", label: "깃허브", icon: <GithubIcon className="w-4 h-4 text-neutral-700" /> },
-  { id: "Globe", label: "웹사이트", icon: <Globe className="w-4 h-4 text-slate-600" /> },
-  { id: "Link2", label: "일반 링크", icon: <Link2 className="w-4 h-4 text-neutral-500" /> },
 ];
 
 const PRESET_BADGES = ["인기", "NEW", "추천", "한정 특가", "베스트셀러"];
 
-export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogProps) {
-  const [open, setOpen] = useState(false);
-  const addBlock = useMyLinkStore((state) => state.addBlock);
+export function AddLinkDialog({
+  onAdd,
+  onSuccessToast,
+  triggerButton,
+  open: controlledOpen,
+  onOpenChange,
+  simple = false,
+}: AddLinkDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (isOpen: boolean) => {
+    if (!isControlled) setInternalOpen(isOpen);
+    onOpenChange?.(isOpen);
+  };
 
-  // Tab state: "link" | "header"
-  const [blockType, setBlockType] = useState<"link" | "header">("link");
+  // react-hook-form + zod: 폼 값·오류 관리와 입력 검증
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    clearErrors,
+    control,
+    formState: { errors },
+  } = useForm<LinkFormValues>({
+    resolver: zodResolver(linkFormSchema),
+    defaultValues: linkFormDefaults,
+    mode: "onSubmit", // 첫 검증은 제출 시
+    reValidateMode: "onChange", // 이후에는 입력할 때마다 재검증
+  });
 
-  // Form states
-  const [title, setTitle] = useState("");
-  const [url, setUrl] = useState("");
-  const [subtitle, setSubtitle] = useState("");
-  const [iconName, setIconName] = useState("Link2");
-  const [badge, setBadge] = useState("");
+  // 미리보기·글자 수 표시용 실시간 값
+  const { blockType, title, url, subtitle, iconName, badge } = {
+    ...linkFormDefaults,
+    ...useWatch({ control }),
+  };
+
   const [customBadgeInput, setCustomBadgeInput] = useState(false);
 
-  // Validation states
-  const [errors, setErrors] = useState<{ title?: string; url?: string }>({});
-
   const resetForm = () => {
-    setTitle("");
-    setUrl("");
-    setSubtitle("");
-    setIconName("Link2");
-    setBadge("");
+    reset(linkFormDefaults);
     setCustomBadgeInput(false);
-    setErrors({});
-    setBlockType("link");
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -93,58 +134,28 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
     }
   };
 
-  const validate = () => {
-    const newErrors: { title?: string; url?: string } = {};
-
-    if (!title.trim()) {
-      newErrors.title = blockType === "header" ? "섹션 헤더 제목을 입력해주세요." : "링크 제목을 입력해주세요.";
-    }
-
-    if (blockType === "link") {
-      if (!url.trim()) {
-        newErrors.url = "연결할 URL 링크를 입력해주세요.";
-      } else {
-        let testUrl = url.trim();
-        if (!/^https?:\/\//i.test(testUrl) && !/^mailto:/i.test(testUrl)) {
-          testUrl = "https://" + testUrl;
-        }
-        try {
-          new URL(testUrl);
-        } catch {
-          newErrors.url = "올바른 URL 형식(예: https://example.com)을 입력해주세요.";
-        }
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const changeBlockType = (type: LinkFormValues["blockType"]) => {
+    setValue("blockType", type);
+    clearErrors();
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validate()) return;
-
-    if (blockType === "header") {
-      addBlock({
+  // 검증을 통과한 값만 들어옴 (zod에서 trim 처리 완료)
+  const onSubmit = (data: LinkFormValues) => {
+    if (data.blockType === "header") {
+      onAdd({
         type: "header",
-        title: title.trim(),
+        title: data.title,
         isVisible: true,
       });
       onSuccessToast?.("새로운 섹션 헤더가 추가되었어요 📑");
     } else {
-      let finalUrl = url.trim();
-      if (!/^https?:\/\//i.test(finalUrl) && !/^mailto:/i.test(finalUrl)) {
-        finalUrl = "https://" + finalUrl;
-      }
-
-      addBlock({
+      onAdd({
         type: "link",
-        title: title.trim(),
-        url: finalUrl,
-        subtitle: subtitle.trim() || undefined,
-        iconName: iconName || "Link2",
-        badge: badge.trim() || undefined,
+        title: data.title,
+        url: normalizeUrl(data.url),
+        subtitle: data.subtitle || undefined,
+        iconName: data.iconName || "Favicon",
+        badge: data.badge || undefined,
         isVisible: true,
       });
       onSuccessToast?.("새로운 링크가 추가되었어요 ✨");
@@ -158,22 +169,23 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
+      {!isControlled && (
       <DialogTrigger
         render={
           triggerButton ? (
             (triggerButton as React.ReactElement)
           ) : (
-            <Button
-              variant="outline"
-              size="lg"
-              className="w-full h-13 rounded-2xl border-dashed border-2 border-border/80 bg-background/50 hover:bg-secondary/70 hover:border-primary/50 text-[15px] font-semibold text-foreground/80 gap-2 transition-all shadow-none"
+            <button
+              type="button"
+              className="w-full h-13 rounded-none sm:rounded-[2px] bg-primary hover:bg-primary/90 active:bg-primary/80 text-primary-foreground text-[15px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none"
             >
-              <Plus className="w-4 h-4 text-primary" />
-              새 링크 추가하기
-            </Button>
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              새로운 링크 추가하기
+            </button>
           )
         }
       />
+      )}
 
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
@@ -181,21 +193,19 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
             <span className="p-1.5 rounded-lg bg-accent text-primary">
               <Sparkles className="w-4 h-4" />
             </span>
-            <DialogTitle>콘텐츠 블록 추가</DialogTitle>
+            <DialogTitle>{simple ? "새 링크 추가" : "내 링크 관리"}</DialogTitle>
           </div>
           <DialogDescription>
-            방문자에게 보여줄 새 링크 버튼이나 섹션 구분 헤더를 추가하세요.
+            새로 추가할 링크의 제목과 주소를 입력해주세요.
           </DialogDescription>
         </DialogHeader>
 
-        {/* 블록 타입 세그먼트 컨트롤 (링크 vs 섹션 헤더) */}
+        {/* 블록 타입 세그먼트 컨트롤 (링크 vs 섹션 헤더) - 간단 모드에서는 숨김 */}
+        {!simple && (
         <div className="flex p-1 bg-secondary rounded-xl gap-1 mb-2">
           <button
             type="button"
-            onClick={() => {
-              setBlockType("link");
-              setErrors({});
-            }}
+            onClick={() => changeBlockType("link")}
             className={`flex-1 py-1.5 text-[13px] font-semibold rounded-lg transition-all ${
               blockType === "link"
                 ? "bg-white text-foreground shadow-xs"
@@ -206,10 +216,7 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
           </button>
           <button
             type="button"
-            onClick={() => {
-              setBlockType("header");
-              setErrors({});
-            }}
+            onClick={() => changeBlockType("header")}
             className={`flex-1 py-1.5 text-[13px] font-semibold rounded-lg transition-all ${
               blockType === "header"
                 ? "bg-white text-foreground shadow-xs"
@@ -219,16 +226,17 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
             📑 섹션 구분 헤더
           </button>
         </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           {/* 블록 제목 입력 */}
           <div className="space-y-1.5">
             <label className="text-[13px] font-semibold text-foreground/90 flex items-center justify-between">
               <span>
-                {blockType === "header" ? "섹션 헤더 제목" : "링크 제목"}{" "}
+                {blockType === "header" ? "섹션 헤더 제목" : "제목"}{" "}
                 <span className="text-destructive">*</span>
               </span>
-              <span className="text-[12px] font-normal text-muted-foreground">{title.length}/40</span>
+              <span className="text-[12px] font-normal text-muted-foreground">{title.length}/{TITLE_MAX}</span>
             </label>
             <Input
               type="text"
@@ -237,56 +245,57 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
                   ? "예: 🔥 대표 채널 & 최신 소식"
                   : "예: 유튜브 채널 바로가기"
               }
-              value={title}
-              maxLength={40}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                if (errors.title) setErrors((prev) => ({ ...prev, title: undefined }));
-              }}
+              maxLength={TITLE_MAX}
+              aria-invalid={!!errors.title}
+              {...register("title")}
               className={errors.title ? "border-destructive focus-visible:ring-destructive/30" : ""}
             />
             {errors.title && (
-              <p className="text-[12px] text-destructive font-medium pl-1">{errors.title}</p>
+              <p className="text-[12px] text-destructive font-medium pl-1">{errors.title.message}</p>
             )}
           </div>
 
           {/* 링크 전용 필드들 */}
           {blockType === "link" && (
             <>
-              {/* 연결 대상 URL 입력 */}
+              {/* 연결 대상 주소(URL) 입력 */}
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold text-foreground/90 flex items-center justify-between">
-                  <span>연결 URL <span className="text-destructive">*</span></span>
+                  <span>주소 (URL) <span className="text-destructive">*</span></span>
                   <span className="text-[12px] font-normal text-muted-foreground">https://...</span>
                 </label>
                 <Input
                   type="text"
                   placeholder="예: https://youtube.com/@channel"
-                  value={url}
-                  onChange={(e) => {
-                    setUrl(e.target.value);
-                    if (errors.url) setErrors((prev) => ({ ...prev, url: undefined }));
-                  }}
+                  inputMode="url"
+                  aria-invalid={!!errors.url}
+                  {...register("url")}
                   className={errors.url ? "border-destructive focus-visible:ring-destructive/30" : ""}
                 />
                 {errors.url && (
-                  <p className="text-[12px] text-destructive font-medium pl-1">{errors.url}</p>
+                  <p className="text-[12px] text-destructive font-medium pl-1">{errors.url.message}</p>
                 )}
               </div>
 
+              {/* 선택 입력 항목 (보조 설명 · 아이콘 · 뱃지) - 간단 모드에서는 숨김 */}
+              {!simple && (
+              <>
               {/* 보조 설명 입력 (선택) */}
               <div className="space-y-1.5">
                 <label className="text-[13px] font-semibold text-foreground/90 flex items-center justify-between">
                   <span>보조 설명 <span className="text-[12px] font-normal text-muted-foreground">(선택)</span></span>
-                  <span className="text-[12px] font-normal text-muted-foreground">{subtitle.length}/50</span>
+                  <span className="text-[12px] font-normal text-muted-foreground">{subtitle.length}/{SUBTITLE_MAX}</span>
                 </label>
                 <Input
                   type="text"
                   placeholder="예: 매주 목요일 저녁 8시 신규 영상 업로드 🎥"
-                  value={subtitle}
-                  maxLength={50}
-                  onChange={(e) => setSubtitle(e.target.value)}
+                  maxLength={SUBTITLE_MAX}
+                  aria-invalid={!!errors.subtitle}
+                  {...register("subtitle")}
                 />
+                {errors.subtitle && (
+                  <p className="text-[12px] text-destructive font-medium pl-1">{errors.subtitle.message}</p>
+                )}
               </div>
 
               {/* 아이콘 선택 */}
@@ -301,7 +310,7 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
                       <button
                         key={item.id}
                         type="button"
-                        onClick={() => setIconName(item.id)}
+                        onClick={() => setValue("iconName", item.id)}
                         className={`flex flex-col items-center justify-center p-2 rounded-xl text-[12px] gap-1 transition-all ${
                           isSelected
                             ? "bg-card shadow-xs border border-primary text-primary font-bold ring-1 ring-primary/40"
@@ -326,7 +335,7 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
                     <button
                       type="button"
                       onClick={() => {
-                        setBadge("");
+                        setValue("badge", "", { shouldValidate: true });
                         setCustomBadgeInput(false);
                       }}
                       className="text-[11px] text-muted-foreground hover:text-foreground underline"
@@ -345,7 +354,7 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
                         key={preset}
                         type="button"
                         onClick={() => {
-                          setBadge(isSelected ? "" : preset);
+                          setValue("badge", isSelected ? "" : preset, { shouldValidate: true });
                           setCustomBadgeInput(false);
                         }}
                         className={`px-2.5 py-1 rounded-full text-[12px] font-medium transition-all ${
@@ -375,14 +384,19 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
                   <Input
                     type="text"
                     placeholder="뱃지 문구 (예: 마감임박, 이벤트)"
-                    value={badge}
-                    maxLength={10}
-                    onChange={(e) => setBadge(e.target.value)}
+                    maxLength={BADGE_MAX}
+                    aria-invalid={!!errors.badge}
+                    {...register("badge")}
                     className="h-10 text-[13px] mt-1.5"
                     autoFocus
                   />
                 )}
+                {errors.badge && (
+                  <p className="text-[12px] text-destructive font-medium pl-1">{errors.badge.message}</p>
+                )}
               </div>
+              </>
+              )}
             </>
           )}
 
@@ -401,7 +415,14 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
               <div className="p-3 border border-border/80 rounded-xl bg-card flex items-center justify-between gap-3 shadow-xs">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="size-10 rounded-xl bg-accent flex items-center justify-center shrink-0">
-                    {selectedIconObj?.icon || <Link2 className="w-4 h-4 text-primary" />}
+                    {iconName === "Favicon" ? (
+                      <FaviconImage
+                        url={normalizeUrl(url) || undefined}
+                        className="w-6 h-6"
+                      />
+                    ) : (
+                      selectedIconObj?.icon || <Link2 className="w-4 h-4 text-primary" />
+                    )}
                   </div>
                   <div className="min-w-0 text-left">
                     <div className="flex items-center gap-1.5">
@@ -441,9 +462,9 @@ export function AddLinkDialog({ onSuccessToast, triggerButton }: AddLinkDialogPr
               type="submit"
               variant="default"
               size="default"
-              className="w-full sm:w-auto bg-primary text-white"
+              className="w-full sm:w-auto bg-primary text-primary-foreground font-semibold"
             >
-              추가 완료
+              저장
             </Button>
           </DialogFooter>
         </form>

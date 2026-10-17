@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getBlockIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { FaviconImage } from "./FaviconImage";
 
 export interface LinkCardProps {
   id: string;
@@ -16,6 +17,8 @@ export interface LinkCardProps {
   className?: string;
   onClick?: (id: string, url?: string) => void;
   onDelete?: (id: string) => void;
+  // 지정 시 URL로 이동하지 않고 이 동작을 실행 (예: 다이얼로그 열기)
+  onCardClick?: (id: string) => void;
 }
 
 export function LinkCard({
@@ -25,15 +28,23 @@ export function LinkCard({
   url,
   badge,
   iconName,
-  shapeClass = "rounded-2xl",
-  variantClass = "bg-card border border-border shadow-[0_1px_2px_rgba(25,31,40,0.04)] hover:shadow-md",
+  shapeClass,
+  variantClass,
   className,
   onClick,
   onDelete,
+  onCardClick,
 }: LinkCardProps) {
-  const iconStyle = getBlockIcon(iconName);
+  // "Favicon" 아이콘이면 Google 파비콘 API로 사이트 아이콘을 자동 표시
+  const useFavicon = iconName?.toLowerCase() === "favicon";
+  const iconStyle = getBlockIcon(iconName || title);
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (onCardClick) {
+      e.preventDefault();
+      onCardClick(id);
+      return;
+    }
     if (onClick) {
       onClick(id, url);
     }
@@ -47,50 +58,35 @@ export function LinkCard({
       onClick={handleClick}
       className="block group select-none no-underline outline-none"
     >
-      <Card
+      <div
         className={cn(
-          "w-full p-4 flex flex-row items-center justify-between gap-3.5 transition-all duration-120 active:scale-[0.98] cursor-pointer",
+          "w-full h-[76px] px-6 bg-white border border-[#E5E8EB] rounded-none sm:rounded-[2px] flex items-center justify-between relative shadow-none hover:border-gray-300 hover:shadow-xs transition-all duration-120 active:scale-[0.99] cursor-pointer",
           shapeClass,
           variantClass,
           className
         )}
       >
-        <div className="flex items-center gap-3.5 min-w-0">
-          {/* 44px 아이콘 컨테이너 */}
-          <div
-            className={cn(
-              "size-11 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105",
-              iconStyle.bgClass
-            )}
-          >
-            {iconStyle.icon}
-          </div>
-
-          {/* 타이틀 및 서브타이틀 스택 */}
-          <div className="min-w-0 text-left">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[16px] font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                {title}
-              </span>
-              {badge && (
-                <Badge
-                  variant="default"
-                  className="rounded-full bg-accent text-accent-foreground px-2 py-0.5 text-[11px] font-semibold border-0"
-                >
-                  {badge}
-                </Badge>
-              )}
-            </div>
-            {subtitle && (
-              <p className="text-[13px] text-muted-foreground group-hover:text-foreground/80 truncate mt-0.5 transition-colors">
-                {subtitle}
-              </p>
-            )}
+        {/* 좌측 아이콘 (36px 영역) */}
+        <div className="w-10 flex items-center justify-start shrink-0">
+          <div className="size-9 rounded-lg flex items-center justify-center shrink-0">
+            {useFavicon ? <FaviconImage url={url} /> : iconStyle.icon}
           </div>
         </div>
 
-        {/* 우측 액션: 삭제 버튼 & 새 창 이동 화살표 */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* 중앙 타이틀 (완벽한 중앙 정렬) */}
+        <div className="flex-1 text-center px-2">
+          <span className="text-[16px] font-semibold text-[#191F28] tracking-tight group-hover:text-primary transition-colors">
+            {title}
+          </span>
+          {subtitle && (
+            <p className="text-[12px] text-muted-foreground truncate mt-0.5">
+              {subtitle}
+            </p>
+          )}
+        </div>
+
+        {/* 우측 액션 / 대칭 스페이스 (w-10으로 좌측과 대칭 유지) */}
+        <div className="w-10 flex items-center justify-end shrink-0">
           {onDelete && (
             <button
               type="button"
@@ -100,16 +96,13 @@ export function LinkCard({
                 onDelete(id);
               }}
               title="링크 삭제"
-              className="size-8 rounded-full flex items-center justify-center text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-70 sm:opacity-0 group-hover:opacity-100"
+              className="size-8 rounded-md flex items-center justify-center text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
             >
-              <Trash2 className="size-3.5" />
+              <Trash2 className="size-4" />
             </button>
           )}
-          <div className="size-8 rounded-full flex items-center justify-center text-muted-foreground/60 group-hover:text-primary group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all">
-            <ArrowUpRight className="size-4 stroke-[2.2]" />
-          </div>
         </div>
-      </Card>
+      </div>
     </a>
   );
 }

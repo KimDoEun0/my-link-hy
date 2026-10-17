@@ -88,6 +88,75 @@ export function KakaoIcon({ className = "w-5 h-5" }: { className?: string }) {
   );
 }
 
+export function InstagramBadgeIcon({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none">
+      <defs>
+        <radialGradient id="instaGrad2" cx="30%" cy="107%" r="130%">
+          <stop offset="0%" stopColor="#fdf497" />
+          <stop offset="5%" stopColor="#fdf497" />
+          <stop offset="45%" stopColor="#fd5949" />
+          <stop offset="60%" stopColor="#d6249f" />
+          <stop offset="90%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <rect width="32" height="32" rx="9" fill="url(#instaGrad2)" />
+      <rect x="7" y="7" width="18" height="18" rx="5" stroke="white" strokeWidth="2" fill="none" />
+      <circle cx="16" cy="16" r="4" stroke="white" strokeWidth="2" fill="none" />
+      <circle cx="21.5" cy="10.5" r="1.2" fill="white" />
+    </svg>
+  );
+}
+
+export function YoutubeBadgeIcon({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="23" x="0" y="4.5" rx="7" fill="#FF0000" />
+      <path d="M13 11.5L21 16L13 20.5V11.5Z" fill="white" />
+    </svg>
+  );
+}
+
+export function VelogBlogIcon({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="#20C997" />
+      <path d="M9 11L16 23L23 11" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function GithubBadgeIcon({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="#181717">
+      <path fillRule="evenodd" clipRule="evenodd" d="M16 2C8.268 2 2 8.268 2 16c0 6.186 4.011 11.433 9.574 13.284.7.129.956-.304.956-.675 0-.332-.012-1.213-.019-2.382-3.895.846-4.717-1.877-4.717-1.877-.637-1.618-1.556-2.049-1.556-2.049-1.271-.869.096-.851.096-.851 1.405.099 2.145 1.443 2.145 1.443 1.249 2.14 3.277 1.522 4.075 1.164.127-.905.489-1.523.89-1.873-3.11-.354-6.38-1.555-6.38-6.921 0-1.529.546-2.778 1.442-3.757-.144-.354-.625-1.778.137-3.705 0 0 1.176-.376 3.852 1.436a13.415 13.415 0 013.507-.472c1.19.006 2.388.161 3.508.472 2.674-1.812 3.848-1.436 3.848-1.436.764 1.927.283 3.351.139 3.705.898.979 1.44 2.228 1.44 3.757 0 5.38-3.276 6.563-6.397 6.91.503.433.951 1.289.951 2.598 0 1.876-.017 3.389-.017 3.85 0 .375.253.811.963.673C25.993 27.43 30 22.184 30 16c0-7.732-6.268-14-14-14z" />
+    </svg>
+  );
+}
+
+export function PortfolioGlobeIcon({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="14" fill="#EEF2FF" />
+      <circle cx="16" cy="16" r="13.5" stroke="#6366F1" strokeWidth="1.5" />
+      <ellipse cx="16" cy="16" rx="6.5" ry="13.5" stroke="#6366F1" strokeWidth="1.5" />
+      <line x1="2.5" y1="16" x2="29.5" y2="16" stroke="#6366F1" strokeWidth="1.5" />
+      <line x1="5.5" y1="9.5" x2="26.5" y2="9.5" stroke="#6366F1" strokeWidth="1.5" />
+      <line x1="5.5" y1="22.5" x2="26.5" y2="22.5" stroke="#6366F1" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+export function Symbol123Icon({ className = "w-8 h-8" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 32" fill="none">
+      <rect width="32" height="32" rx="8" fill="#F3F4F6" />
+      <path d="M16 6L24 24H8L16 6Z" fill="#111827" />
+      <circle cx="16" cy="18" r="3" fill="white" />
+    </svg>
+  );
+}
+
 export interface IconStyleConfig {
   icon: React.ReactNode;
   bgClass: string;
@@ -95,19 +164,52 @@ export interface IconStyleConfig {
 }
 
 export function getBlockIcon(iconName?: string): IconStyleConfig {
-  switch (iconName?.toLowerCase()) {
-    case "youtube":
-      return {
-        icon: <YoutubeIcon className="w-5 h-5" />,
-        bgClass: "bg-red-50 text-red-600",
-        colorClass: "text-red-600",
-      };
-    case "instagram":
-      return {
-        icon: <InstagramIcon className="w-5 h-5" />,
-        bgClass: "bg-pink-50 text-pink-600",
-        colorClass: "text-pink-600",
-      };
+  const name = iconName?.toLowerCase() || "";
+  
+  if (name.includes("insta")) {
+    return {
+      icon: <InstagramBadgeIcon className="w-8 h-8" />,
+      bgClass: "",
+      colorClass: "",
+    };
+  }
+  if (name.includes("youtube") || name.includes("yt")) {
+    return {
+      icon: <YoutubeBadgeIcon className="w-8 h-8" />,
+      bgClass: "",
+      colorClass: "",
+    };
+  }
+  if (name.includes("blog") || name.includes("velog")) {
+    return {
+      icon: <VelogBlogIcon className="w-8 h-8" />,
+      bgClass: "",
+      colorClass: "",
+    };
+  }
+  if (name.includes("github") || name.includes("git")) {
+    return {
+      icon: <GithubBadgeIcon className="w-8 h-8" />,
+      bgClass: "",
+      colorClass: "",
+    };
+  }
+  if (name.includes("portfolio") || name.includes("globe")) {
+    return {
+      icon: <PortfolioGlobeIcon className="w-8 h-8" />,
+      bgClass: "",
+      colorClass: "",
+    };
+  }
+  if (name.includes("123") || name.includes("symbol")) {
+    return {
+      icon: <Symbol123Icon className="w-8 h-8" />,
+      bgClass: "",
+      colorClass: "",
+    };
+  }
+
+  switch (name) {
     case "video":
     case "tiktok":
       return {
@@ -174,18 +276,6 @@ export function getBlockIcon(iconName?: string): IconStyleConfig {
         icon: <Award className="w-5 h-5 stroke-[2]" />,
         bgClass: "bg-amber-50 text-amber-600",
         colorClass: "text-amber-600",
-      };
-    case "globe":
-      return {
-        icon: <Globe className="w-5 h-5 stroke-[2]" />,
-        bgClass: "bg-slate-100 text-slate-700",
-        colorClass: "text-slate-700",
-      };
-    case "github":
-      return {
-        icon: <GithubIcon className="w-5 h-5" />,
-        bgClass: "bg-slate-100 text-slate-800",
-        colorClass: "text-slate-800",
       };
     default:
       return {

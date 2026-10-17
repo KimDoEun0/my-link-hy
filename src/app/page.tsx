@@ -2,45 +2,44 @@
 
 import { useEffect, useState } from "react";
 import { useMyLinkStore } from "@/lib/useMyLinkStore";
-import { initialProfile, initialBlocks, initialTheme } from "@/data/initialData";
+import { initialProfile, initialBlocks } from "@/data/initialData";
+import type { ContentBlock } from "@/types/mylink";
 import {
-  ProfileHeader,
-  SocialIconBar,
-  ProfileActions,
   SectionHeader,
   LinkCard,
-  ContactCard,
-  ProfileShareButton,
-  ProfileFooter,
   ProfileToast,
   AddLinkDialog,
+  type NewBlockInput,
 } from "@/components/profile";
-import { Button } from "@/components/ui/button";
-import { Plus, RotateCcw } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Plus, RotateCcw, User } from "lucide-react";
+
+// 상단 프로필 영역에 표시할 정보 (이름 · 아이디 · 소개)
+const PROFILE_INFO = {
+  name: "My Name",
+  handle: "@my_handle",
+  bio: "Frontend Developer | 바이브 코딩 실습 중\n나만의 링크를 모아두는 공간 ✨",
+};
+
+// 클릭 시 사이트 이동 대신 "새 링크 추가" 다이얼로그를 여는 Blog 카드 id
+const BLOG_BLOCK_ID = "link-3";
 
 export default function ProfilePage() {
   const [mounted, setMounted] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
-  const [isEmailCopied, setIsEmailCopied] = useState(false);
-  const [isLinkCopied, setIsLinkCopied] = useState(false);
+  // Blog 카드 클릭 시 열리는 "새 링크 추가" 다이얼로그 상태
+  const [blogDialogOpen, setBlogDialogOpen] = useState(false);
+
+  // 로컬 상태 관리: 링크 목록을 useState로 관리 (추가 시 UI에 즉시 반영)
+  const [blocks, setBlocks] = useState<ContentBlock[]>(initialBlocks);
 
   const storeProfile = useMyLinkStore((state) => state.profile);
-  const storeBlocks = useMyLinkStore((state) => state.blocks);
-  const storeTheme = useMyLinkStore((state) => state.theme);
   const recordView = useMyLinkStore((state) => state.recordView);
   const recordClick = useMyLinkStore((state) => state.recordClick);
-  const deleteBlock = useMyLinkStore((state) => state.deleteBlock);
-  const resetToInitial = useMyLinkStore((state) => state.resetToInitial);
 
   // SSR Hydration Fallback: Use initial seed before client-side mount
   const profile = mounted ? storeProfile : initialProfile;
-  const blocks = mounted ? storeBlocks : initialBlocks;
-  const theme = mounted ? storeTheme : initialTheme;
-
-  const email =
-    profile.socials?.email?.replace(/^mailto:/, "") ||
-    "minji.creator@example.com";
 
   useEffect(() => {
     setMounted(true);
@@ -62,8 +61,8 @@ export default function ProfilePage() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${profile.displayName} | MyLink`,
-          text: profile.bio,
+          title: `${profile.displayName || "MyLink"}`,
+          text: profile.bio || "나의 멀티링크 모음",
           url: shareUrl,
         });
         shared = true;
@@ -76,23 +75,10 @@ export default function ProfilePage() {
     if (!shared) {
       try {
         await navigator.clipboard.writeText(shareUrl);
-        setIsLinkCopied(true);
         showToast("프로필 링크가 복사되었어요");
-        setTimeout(() => setIsLinkCopied(false), 2400);
       } catch {
         // clipboard write error
       }
-    }
-  };
-
-  const handleCopyEmail = async () => {
-    try {
-      await navigator.clipboard.writeText(email);
-      setIsEmailCopied(true);
-      showToast("이메일 주소가 복사되었어요");
-      setTimeout(() => setIsEmailCopied(false), 2400);
-    } catch {
-      // clipboard write error
     }
   };
 
@@ -101,41 +87,26 @@ export default function ProfilePage() {
     recordClick(blockId);
   };
 
+  // 다이얼로그에서 전달받은 새 링크를 목록 끝에 추가
+  const handleAddBlock = (newBlock: NewBlockInput) => {
+    setBlocks((prev) => {
+      const maxOrder = prev.reduce((max, b) => Math.max(max, b.order || 0), 0);
+      return [
+        ...prev,
+        { ...newBlock, id: `link-${Date.now()}`, order: maxOrder + 1 },
+      ];
+    });
+  };
+
   const handleDeleteBlock = (blockId: string) => {
-    deleteBlock(blockId);
+    setBlocks((prev) => prev.filter((b) => b.id !== blockId));
     showToast("항목이 삭제되었어요 🗑️");
   };
 
   const handleResetData = () => {
     if (window.confirm("초기 샘플 데이터로 복원하시겠습니까?")) {
-      resetToInitial();
+      setBlocks(initialBlocks);
       showToast("초기 데이터로 복원되었어요 🔄");
-    }
-  };
-
-  // Button shape classes according to theme (Tailwind CSS)
-  const getShapeClass = () => {
-    switch (theme.buttonShape) {
-      case "rounded-full":
-        return "rounded-full";
-      case "rounded-none":
-        return "rounded-none";
-      case "rounded-xl":
-      default:
-        return "rounded-2xl";
-    }
-  };
-
-  // Button variant classes according to theme (Tailwind CSS)
-  const getVariantClass = () => {
-    switch (theme.buttonVariant) {
-      case "outline":
-        return "bg-card/80 backdrop-blur-sm border-2 border-border hover:border-primary";
-      case "shadow":
-        return "bg-card shadow-[0_4px_16px_rgba(25,31,40,0.08)] border border-black/5 hover:shadow-[0_8px_24px_rgba(25,31,40,0.12)]";
-      case "filled":
-      default:
-        return "bg-card border border-border shadow-[0_1px_2px_rgba(25,31,40,0.04)] hover:shadow-md";
     }
   };
 
@@ -145,115 +116,106 @@ export default function ProfilePage() {
     .sort((a, b) => a.order - b.order);
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] sm:py-8 flex items-center justify-center font-[-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif] selection:bg-accent selection:text-primary">
-      {/* 📱 모바일 퍼스트 셸 컨테이너 (스마트폰 뷰포트 비율) */}
-      <div className="w-full max-w-[440px] min-h-screen sm:min-h-[880px] bg-background sm:rounded-[36px] sm:shadow-2xl sm:border sm:border-border flex flex-col justify-between overflow-hidden relative">
-        {/* 상단 액션 바 (MyLink 타이틀 & 링크 추가 / 공유 버튼) */}
-        <header className="h-14 px-5 flex items-center justify-between sticky top-0 bg-background/90 backdrop-blur-md z-30 border-b border-black/[0.03]">
-          <div className="flex items-center gap-1.5 text-[15px] font-bold text-foreground tracking-tight">
-            <span>MyLink</span>
-          </div>
-          <div className="flex items-center gap-1">
+    <div className="min-h-screen bg-white py-6 sm:py-10 px-4 flex justify-center font-[-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif] selection:bg-accent selection:text-primary">
+      {/* 📱 중앙 컬럼 컨테이너 (스크린샷 비율: max-w-[460px]) */}
+      <div className="w-full max-w-[460px] flex flex-col space-y-4">
+        {/* 상단 0. 프로필 영역 (사진 · 이름 · 아이디 · 소개) */}
+        <section className="flex flex-col items-center text-center pt-6 pb-5">
+          <Avatar size="2xl" className="ring-4 ring-white shadow-[0_2px_10px_rgba(0,0,0,0.12)] bg-secondary overflow-hidden border-0">
+            <AvatarImage src="/profile-avatar.svg" alt="프로필 사진" className="size-full object-cover" />
+            <AvatarFallback className="size-full bg-secondary flex items-center justify-center">
+              <User className="size-10 text-muted-foreground" />
+            </AvatarFallback>
+          </Avatar>
+          <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
+            {PROFILE_INFO.name}
+          </h1>
+          <p className="mt-1 text-[13px] text-[#8B95A1]">{PROFILE_INFO.handle}</p>
+          <p className="mt-2.5 text-[15px] leading-relaxed text-[#4E5968] whitespace-pre-line break-keep">
+            {PROFILE_INFO.bio}
+          </p>
+        </section>
+
+        {/* 상단 1. '+ 새로운 링크 추가하기' 파란색 직사각형 버튼 (다이얼로그 트리거) */}
+        <AddLinkDialog
+          onAdd={handleAddBlock}
+          onSuccessToast={showToast}
+          triggerButton={
             <button
               type="button"
-              onClick={handleResetData}
-              title="초기 샘플 데이터 복원"
-              className="size-8 rounded-lg flex items-center justify-center text-muted-foreground/60 hover:text-foreground hover:bg-secondary transition-colors"
+              className="w-full h-13 rounded-none sm:rounded-[2px] bg-primary hover:bg-primary/90 active:bg-primary/80 text-primary-foreground text-[15px] font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer select-none shadow-none"
             >
-              <RotateCcw className="size-3.5" />
+              <Plus className="w-4 h-4 stroke-[2.5]" />
+              새로운 링크 추가하기
             </button>
-            <AddLinkDialog
-              onSuccessToast={showToast}
-              triggerButton={
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-primary hover:bg-accent font-semibold h-8 px-2.5 rounded-lg gap-1 text-[13px]"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  링크 추가
-                </Button>
-              }
-            />
-            <ProfileShareButton onShare={handleShare} />
-          </div>
-        </header>
+          }
+        />
 
-        {/* 메인 컨텐츠 영역 */}
-        <main className="px-5 pt-6 pb-12 flex-1 space-y-6">
-          {/* 1. 프로필 헤더 (shadcn/ui Avatar & Badge 기반) */}
-          <ProfileHeader
-            displayName={profile.displayName}
-            bio={profile.bio}
-            avatarUrl={profile.avatarUrl}
-            badge={profile.badge}
-          />
-
-          {/* 2. 소셜 미디어 아이콘 바 */}
-          <SocialIconBar socials={profile.socials} />
-
-          {/* 3. 화면 핵심 액션: '프로필 링크 공유하기' & '이메일 복사' 버튼 바 */}
-          <ProfileActions
-            onShare={handleShare}
-            onCopyEmail={handleCopyEmail}
-            isEmailCopied={isEmailCopied}
-            isLinkCopied={isLinkCopied}
-          />
-
-          {/* 4. 콘텐츠 블록 리스트 (SectionHeader & LinkCard) */}
-          <section className="space-y-3 pt-2">
-            {visibleBlocks.map((block) => {
-              if (block.type === "header") {
-                return (
-                  <SectionHeader
-                    key={block.id}
-                    id={block.id}
-                    title={block.title}
-                    onDelete={handleDeleteBlock}
-                  />
-                );
-              }
-
+        {/* 상단 2. 링크 카드 리스트 (이미지 레이아웃) */}
+        <div className="space-y-3.5">
+          {visibleBlocks.map((block) => {
+            if (block.type === "header") {
               return (
-                <LinkCard
+                <SectionHeader
                   key={block.id}
                   id={block.id}
                   title={block.title}
-                  subtitle={block.subtitle}
-                  url={block.url}
-                  badge={block.badge}
-                  iconName={block.iconName}
-                  shapeClass={getShapeClass()}
-                  variantClass={getVariantClass()}
-                  onClick={handleLinkClick}
                   onDelete={handleDeleteBlock}
                 />
               );
-            })}
+            }
 
-            {/* 새 링크 추가 다이얼로그 카드 트리거 */}
-            <div className="pt-2">
-              <AddLinkDialog onSuccessToast={showToast} />
-            </div>
-          </section>
+            return (
+              <LinkCard
+                key={block.id}
+                id={block.id}
+                title={block.title}
+                subtitle={block.subtitle}
+                url={block.url}
+                badge={block.badge}
+                iconName={block.iconName}
+                onClick={handleLinkClick}
+                onDelete={handleDeleteBlock}
+                onCardClick={block.id === BLOG_BLOCK_ID ? () => setBlogDialogOpen(true) : undefined}
+              />
+            );
+          })}
+        </div>
 
-          {/* 5. 비즈니스 문의 및 이메일 카드 */}
-          <ContactCard
-            email={email}
-            onCopyEmail={handleCopyEmail}
-            isCopied={isEmailCopied}
-          />
-        </main>
-
-        {/* 6. 하단 푸터 브랜딩 */}
-        <ProfileFooter />
-
-        {/* 7. TDS Toast 알림 (공유 링크 및 이메일 복사 시) */}
-        <ProfileToast
-          message={toastMessage}
-          visible={toastVisible}
-        />
+        {/* 하단 보조 액션 (초기 데이터 복원 및 공유) */}
+        <div className="pt-6 pb-8 flex items-center justify-between text-xs text-muted-foreground/60 px-1 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={handleResetData}
+            className="flex items-center gap-1 hover:text-foreground transition-colors"
+          >
+            <RotateCcw className="w-3 h-3" />
+            초기 예시 데이터 복원
+          </button>
+          <button
+            type="button"
+            onClick={handleShare}
+            className="hover:text-foreground transition-colors"
+          >
+            링크 공유하기 ↗
+          </button>
+        </div>
       </div>
+
+      {/* Blog 카드 클릭 시: 제목과 URL을 입력하는 "새 링크 추가" 다이얼로그 */}
+      <AddLinkDialog
+        simple
+        open={blogDialogOpen}
+        onOpenChange={setBlogDialogOpen}
+        onAdd={handleAddBlock}
+        onSuccessToast={showToast}
+      />
+
+      {/* TDS Toast 알림 */}
+      <ProfileToast
+        message={toastMessage}
+        visible={toastVisible}
+      />
     </div>
   );
 }
