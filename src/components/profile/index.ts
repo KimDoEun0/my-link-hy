@@ -10,3 +10,5 @@ export * from "./ProfileToast";
 export * from "./AddLinkDialog";
 export * from "./FaviconImage";
 export * from "./LinkCardSkeleton";
+export * from "./LinkEditForm";
+export * from "./DeleteLinkDialog";

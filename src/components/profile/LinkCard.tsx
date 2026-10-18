@@ -1,9 +1,12 @@
-import { ArrowUpRight, Loader2, Trash2 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+"use client";
+
+import { useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { getBlockIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { FaviconImage } from "./FaviconImage";
+import { LinkEditForm } from "./LinkEditForm";
+import { DeleteLinkDialog } from "./DeleteLinkDialog";
 
 export interface LinkCardProps {
   id: string;
@@ -16,108 +19,136 @@ export interface LinkCardProps {
   variantClass?: string;
   className?: string;
   onClick?: (id: string, url?: string) => void;
-  onDelete?: (id: string) => void;
   // 지정 시 URL로 이동하지 않고 이 동작을 실행 (예: 다이얼로그 열기)
   onCardClick?: (id: string) => void;
-  // 삭제 처리 중: 카드를 흐리게 하고 클릭을 막으며 삭제 버튼 자리에 스피너 표시
-  isDeleting?: boolean;
+  // 수정 저장 (지정 시 수정 버튼 표시). 실패 시 예외를 던지면 수정 폼에 오류 표시
+  onUpdate?: (id: string, data: { title: string; url: string }) => Promise<void>;
+  // 삭제 실행 (지정 시 삭제 버튼 표시). 실패 시 예외를 던지면 삭제 모달에 오류 표시
+  onDelete?: (id: string) => Promise<void>;
 }
 
+// 링크 카드: 수정(인라인 편집) · 삭제(확인 모달) 상태를 카드마다 독립적으로 관리
 export function LinkCard({
   id,
   title,
   subtitle,
   url,
-  badge,
   iconName,
   shapeClass,
   variantClass,
   className,
   onClick,
-  onDelete,
   onCardClick,
-  isDeleting = false,
+  onUpdate,
+  onDelete,
 }: LinkCardProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
   // "Favicon" 아이콘이면 Google 파비콘 API로 사이트 아이콘을 자동 표시
   const useFavicon = iconName?.toLowerCase() === "favicon";
   const iconStyle = getBlockIcon(iconName || title);
+  const hasActions = !!(onUpdate || onDelete);
+
+  // 인라인 수정 모드
+  if (isEditing && onUpdate) {
+    return (
+      <LinkEditForm
+        initialTitle={title}
+        initialUrl={url ?? ""}
+        onSave={async (data) => {
+          await onUpdate(id, data);
+          setIsEditing(false);
+        }}
+        onCancel={() => setIsEditing(false)}
+      />
+    );
+  }
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    if (isDeleting) {
-      e.preventDefault();
-      return;
-    }
     if (onCardClick) {
       e.preventDefault();
       onCardClick(id);
       return;
     }
-    if (onClick) {
-      onClick(id, url);
-    }
+    onClick?.(id, url);
   };
 
+  // 좌우 영역 너비를 같게 맞춰 제목을 가운데 정렬 (버튼이 있으면 넓게)
+  const sideWidth = hasActions ? "w-20" : "w-10";
+
   return (
-    <a
-      href={url || "#"}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={handleClick}
-      aria-busy={isDeleting}
-      className={cn(
-        "block group select-none no-underline outline-none",
-        isDeleting && "opacity-50 pointer-events-none"
-      )}
-    >
+    <>
       <div
         className={cn(
-          "w-full h-[76px] px-6 bg-white border border-[#E5E8EB] rounded-none sm:rounded-[2px] flex items-center justify-between relative shadow-none hover:border-gray-300 hover:shadow-xs transition-all duration-120 active:scale-[0.99] cursor-pointer",
+          "w-full h-[76px] bg-white border border-[#E5E8EB] rounded-none sm:rounded-[2px] flex items-center relative shadow-none hover:border-gray-300 hover:shadow-xs transition-all duration-120 group",
           shapeClass,
           variantClass,
           className
         )}
       >
-        {/* 좌측 아이콘 (36px 영역) */}
-        <div className="w-10 flex items-center justify-start shrink-0">
-          <div className="size-9 rounded-lg flex items-center justify-center shrink-0">
-            {useFavicon ? <FaviconImage url={url} /> : iconStyle.icon}
+        {/* 링크 영역 (아이콘 + 제목): 클릭 시 새 탭으로 이동 */}
+        <a
+          href={url || "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={handleClick}
+          className="flex-1 min-w-0 h-full pl-6 flex items-center select-none no-underline outline-none focus-visible:ring-2 focus-visible:ring-primary/40 active:scale-[0.99] transition-transform"
+        >
+          {/* 좌측 아이콘 */}
+          <div className={cn(sideWidth, "flex items-center justify-start shrink-0")}>
+            <div className="size-9 rounded-lg flex items-center justify-center shrink-0">
+              {useFavicon ? <FaviconImage url={url} /> : iconStyle.icon}
+            </div>
           </div>
-        </div>
 
-        {/* 중앙 타이틀 (완벽한 중앙 정렬) */}
-        <div className="flex-1 text-center px-2">
-          <span className="text-[16px] font-semibold text-[#191F28] tracking-tight group-hover:text-primary transition-colors">
-            {title}
-          </span>
-          {subtitle && (
-            <p className="text-[12px] text-muted-foreground truncate mt-0.5">
-              {subtitle}
-            </p>
-          )}
-        </div>
-
-        {/* 우측 액션 / 대칭 스페이스 (w-10으로 좌측과 대칭 유지) */}
-        <div className="w-10 flex items-center justify-end shrink-0">
-          {isDeleting ? (
-            <span role="status" aria-label="삭제 중" className="size-8 flex items-center justify-center">
-              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          {/* 중앙 타이틀 */}
+          <div className="flex-1 min-w-0 text-center px-2">
+            <span className="block truncate text-[16px] font-semibold text-[#191F28] tracking-tight group-hover:text-primary transition-colors">
+              {title}
             </span>
-          ) : onDelete && (
+            {subtitle && (
+              <p className="text-[12px] text-muted-foreground truncate mt-0.5">{subtitle}</p>
+            )}
+          </div>
+        </a>
+
+        {/* 우측 수정 · 삭제 버튼 (항상 표시) / 버튼이 없으면 대칭용 빈 공간 */}
+        {/* box-content: 좌측(pl-6 + 아이콘 영역)과 너비를 같게 맞춰 제목을 정확히 가운데 정렬 */}
+        <div className={cn(sideWidth, "box-content pr-6 flex items-center justify-end gap-0.5 shrink-0")}>
+          {onUpdate && (
             <button
               type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                onDelete(id);
-              }}
+              onClick={() => setIsEditing(true)}
+              title="링크 수정"
+              aria-label={`${title} 수정`}
+              className="size-8 rounded-md flex items-center justify-center text-[#8B95A1] hover:text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Pencil className="size-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => setIsDeleteOpen(true)}
               title="링크 삭제"
-              className="size-8 rounded-md flex items-center justify-center text-muted-foreground/30 hover:text-destructive hover:bg-destructive/10 transition-colors opacity-0 group-hover:opacity-100"
+              aria-label={`${title} 삭제`}
+              className="size-8 rounded-md flex items-center justify-center text-[#8B95A1] hover:text-destructive hover:bg-destructive/10 transition-colors"
             >
               <Trash2 className="size-4" />
             </button>
           )}
         </div>
       </div>
-    </a>
+
+      {/* 삭제 확인 모달 */}
+      {onDelete && (
+        <DeleteLinkDialog
+          target={isDeleteOpen ? { id, title } : null}
+          onConfirm={onDelete}
+          onClose={() => setIsDeleteOpen(false)}
+        />
+      )}
+    </>
   );
 }

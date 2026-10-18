@@ -49,6 +49,7 @@ import {
   MessageCircle,
   Globe,
   Link2,
+  Loader2,
   Sparkles,
 } from "lucide-react";
 
@@ -130,6 +131,8 @@ export function AddLinkDialog({
   };
 
   const handleOpenChange = (isOpen: boolean) => {
+    // 저장 중에는 Esc · 바깥 클릭 · 닫기 버튼으로 닫히지 않음 (완료 후 자동으로 닫힘)
+    if (!isOpen && isSubmitting) return;
     setOpen(isOpen);
     if (!isOpen) {
       resetForm();
@@ -462,6 +465,7 @@ export function AddLinkDialog({
                   type="button"
                   variant="secondary"
                   size="default"
+                  disabled={isSubmitting}
                   className="w-full sm:w-auto"
                 >
                   취소
@@ -473,9 +477,13 @@ export function AddLinkDialog({
               variant="default"
               size="default"
               disabled={isSubmitting}
-              className="w-full sm:w-auto bg-primary text-primary-foreground font-semibold"
+              aria-busy={isSubmitting}
+              // 저장 중에는 스피너 아이콘만 표시 (화면 낭독기용 이름은 유지)
+              aria-label={isSubmitting ? "저장 중" : undefined}
+              // 저장 중에도 흐려지지 않도록 하고, 아이콘만 있어도 버튼 너비 유지
+              className="w-full sm:w-auto sm:min-w-20 bg-primary text-primary-foreground font-semibold disabled:opacity-100"
             >
-              {isSubmitting ? "저장 중..." : "저장"}
+              {isSubmitting ? <Loader2 className="animate-spin" aria-hidden="true" /> : "저장"}
             </Button>
           </DialogFooter>
         </form>

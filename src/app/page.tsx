@@ -6,7 +6,7 @@ import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { initialProfile } from "@/data/initialData";
 import type { ContentBlock } from "@/types/mylink";
-import { addLink, deleteLink } from "@/lib/linksFirestore";
+import { addLink, deleteLink, updateLink } from "@/lib/linksFirestore";
 import {
   SectionHeader,
   LinkCard,
@@ -34,8 +34,6 @@ export default function ProfilePage() {
   const [links, setLinks] = useState<ContentBlock[]>([]);
   // 첫 로드(Firestore 조회) 중 여부
   const [isLoading, setIsLoading] = useState(true);
-  // 삭제 처리 중인 링크 id 목록
-  const [deletingIds, setDeletingIds] = useState<string[]>([]);
 
   // 컴포넌트 마운트 시 Firestore(users/anonymous/links)에서 링크를 1회 조회 (실시간 구독 아님)
   useEffect(() => {
@@ -148,22 +146,27 @@ export default function ProfilePage() {
     setLinks((prev) => [{ ...link, id, order: -1 }, ...prev]);
   };
 
-  // 링크 삭제: Firestore 문서 삭제 후 로컬 상태에서도 제거
-  const handleDeleteBlock = (blockId: string) => {
-    if (deletingIds.includes(blockId)) return; // 중복 클릭 방지
-    setDeletingIds((prev) => [...prev, blockId]);
+  // 링크 수정: Firestore 문서(users/anonymous/links/{id}) 갱신 → 로컬 상태 업데이트 (실시간 구독 아님)
+  // 실패 시 예외를 그대로 던져 수정 폼에서 오류를 표시
+  const handleUpdateLink = async (id: string, data: { title: string; url: string }) => {
+    await updateLink(id, data);
+    setLinks((prev) => prev.map((b) => (b.id === id ? { ...b, ...data } : b)));
+    showToast("링크가 수정되었어요 ✏️");
+  };
 
-    deleteLink(blockId)
-      .then(() => {
-        setLinks((prev) => prev.filter((b) => b.id !== blockId));
-        showToast("항목이 삭제되었어요 🗑️");
-      })
-      .catch(() => {
-        showToast("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
-      })
-      .finally(() => {
-        setDeletingIds((prev) => prev.filter((id) => id !== blockId));
-      });
+  // 링크 삭제: Firestore 문서 삭제 → 로컬 상태에서 제거
+  // 실패 시 예외를 그대로 던져 삭제 확인 모달에서 오류를 표시
+  const handleDeleteLink = async (id: string) => {
+    await deleteLink(id);
+    setLinks((prev) => prev.filter((b) => b.id !== id));
+    showToast("항목이 삭제되었어요 🗑️");
+  };
+
+  // 섹션 헤더 삭제 (버튼에서 바로 삭제, 실패 시 안내)
+  const handleDeleteHeader = (id: string) => {
+    handleDeleteLink(id).catch(() => {
+      showToast("삭제에 실패했어요. 잠시 후 다시 시도해주세요.");
+    });
   };
 
   const visibleBlocks = links.filter((b) => b.isVisible !== false);
@@ -225,7 +228,7 @@ export default function ProfilePage() {
                   key={block.id}
                   id={block.id}
                   title={block.title}
-                  onDelete={handleDeleteBlock}
+                  onDelete={handleDeleteHeader}
                 />
               );
             }
@@ -240,8 +243,8 @@ export default function ProfilePage() {
                 badge={block.badge}
                 iconName={block.iconName}
                 onClick={handleLinkClick}
-                onDelete={handleDeleteBlock}
-                isDeleting={deletingIds.includes(block.id)}
+                onUpdate={handleUpdateLink}
+                onDelete={handleDeleteLink}
               />
             );
           })}

@@ -33,11 +33,28 @@ export const TITLE_MAX = 40;
 export const SUBTITLE_MAX = 50;
 export const BADGE_MAX = 10;
 
+// 공통 검증 규칙 (링크 추가·수정에서 함께 사용)
+const titleField = z.string().trim().max(TITLE_MAX, `제목은 ${TITLE_MAX}자 이하로 입력해주세요.`);
+const LINK_TITLE_REQUIRED = "링크 제목을 입력해주세요.";
+
+// URL: 필수 + 형식 검사
+function refineLinkUrl(url: string, ctx: z.RefinementCtx) {
+  if (!url) {
+    ctx.addIssue({ code: "custom", path: ["url"], message: "연결할 URL 링크를 입력해주세요." });
+  } else if (!isValidLinkUrl(url)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["url"],
+      message: "올바른 URL 형식(예: https://example.com)을 입력해주세요.",
+    });
+  }
+}
+
 // 링크 추가 다이얼로그 입력 검증 스키마
 export const linkFormSchema = z
   .object({
     blockType: z.enum(["link", "header"]),
-    title: z.string().trim().max(TITLE_MAX, `제목은 ${TITLE_MAX}자 이하로 입력해주세요.`),
+    title: titleField,
     url: z.string().trim(),
     subtitle: z.string().trim().max(SUBTITLE_MAX, `보조 설명은 ${SUBTITLE_MAX}자 이하로 입력해주세요.`),
     iconName: z.string(),
@@ -49,21 +66,13 @@ export const linkFormSchema = z
       ctx.addIssue({
         code: "custom",
         path: ["title"],
-        message: data.blockType === "header" ? "섹션 헤더 제목을 입력해주세요." : "링크 제목을 입력해주세요.",
+        message: data.blockType === "header" ? "섹션 헤더 제목을 입력해주세요." : LINK_TITLE_REQUIRED,
       });
     }
 
     // URL: 링크 블록일 때만 필수 + 형식 검사
     if (data.blockType === "link") {
-      if (!data.url) {
-        ctx.addIssue({ code: "custom", path: ["url"], message: "연결할 URL 링크를 입력해주세요." });
-      } else if (!isValidLinkUrl(data.url)) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["url"],
-          message: "올바른 URL 형식(예: https://example.com)을 입력해주세요.",
-        });
-      }
+      refineLinkUrl(data.url, ctx);
     }
   });
 
@@ -77,3 +86,18 @@ export const linkFormDefaults: LinkFormValues = {
   iconName: "Favicon",
   badge: "",
 };
+
+// 링크 인라인 수정 검증 스키마 (추가와 동일한 제목·URL 규칙)
+export const linkEditSchema = z
+  .object({
+    title: titleField,
+    url: z.string().trim(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.title) {
+      ctx.addIssue({ code: "custom", path: ["title"], message: LINK_TITLE_REQUIRED });
+    }
+    refineLinkUrl(data.url, ctx);
+  });
+
+export type LinkEditValues = z.infer<typeof linkEditSchema>;

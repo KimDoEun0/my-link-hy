@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   serverTimestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import type { ContentBlock } from "@/types/mylink";
@@ -34,4 +35,9 @@ export async function addLink(link: NewLinkData): Promise<string> {
 // 링크 삭제
 export async function deleteLink(id: string): Promise<void> {
   await deleteDoc(doc(linksCollection, id));
+}
+
+// 링크 수정: users/anonymous/links/{id} 문서의 title, url 갱신
+export async function updateLink(id: string, data: { title: string; url: string }): Promise<void> {
+  await updateDoc(doc(linksCollection, id), { title: data.title, url: data.url });
 }
