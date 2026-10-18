@@ -37,7 +37,11 @@ export async function deleteLink(id: string): Promise<void> {
   await deleteDoc(doc(linksCollection, id));
 }
 
-// 링크 수정: users/anonymous/links/{id} 문서의 title, url 갱신
+// 링크 수정: users/anonymous/links/{id} 문서의 title, url 갱신 + 수정 시각(updatedAt) 기록
 export async function updateLink(id: string, data: { title: string; url: string }): Promise<void> {
-  await updateDoc(doc(linksCollection, id), { title: data.title, url: data.url });
+  await updateDoc(doc(linksCollection, id), {
+    title: data.title,
+    url: data.url,
+    updatedAt: serverTimestamp(),
+  });
 }
