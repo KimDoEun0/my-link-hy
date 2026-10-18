@@ -122,7 +122,8 @@ export function LinkCard({
               onClick={() => setIsEditing(true)}
               title="링크 수정"
               aria-label={`${title} 수정`}
-              className="size-8 rounded-md flex items-center justify-center text-[#8B95A1] hover:text-primary hover:bg-primary/10 transition-colors"
+              // 수정 버튼: 항상 파란색(Primary)
+              className="size-8 rounded-md flex items-center justify-center text-primary hover:bg-primary/10 transition-colors"
             >
               <Pencil className="size-4" />
             </button>
@@ -133,7 +134,8 @@ export function LinkCard({
               onClick={() => setIsDeleteOpen(true)}
               title="링크 삭제"
               aria-label={`${title} 삭제`}
-              className="size-8 rounded-md flex items-center justify-center text-[#8B95A1] hover:text-destructive hover:bg-destructive/10 transition-colors"
+              // 삭제 버튼: 항상 빨간색(Destructive)
+              className="size-8 rounded-md flex items-center justify-center text-destructive hover:bg-destructive/10 transition-colors"
             >
               <Trash2 className="size-4" />
             </button>
