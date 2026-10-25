@@ -1,24 +1,50 @@
 "use client";
 
-import { LogOut, User as UserIcon } from "lucide-react";
+import { Copy, Eye, LogOut, User as UserIcon } from "lucide-react";
 import type { User } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getDisplayName } from "@/lib/auth";
 import { GoogleLoginButton } from "./GoogleLoginButton";
 
 interface HeaderProps {
   user: User | null;
+  // users/{uid} 프로필에 저장된 이름 · 이메일 (없으면 로그인 계정 정보 사용)
+  displayName?: string;
+  email?: string;
   authLoading: boolean; // 첫 로그인 상태 확인 중
   signingIn: boolean; // Google 로그인 진행 중
+  previewHref: string; // 내 페이지 미리보기 주소
   onLogin: () => void;
   onLogout: () => void;
+  onCopyLink: () => void;
 }
 
 // 상단 헤더 (와이어프레임: 가운데 "MyLink" 로고 + 오른쪽 액션 영역)
 // - 로그아웃 상태: "Google로 로그인" 버튼
-// - 로그인 상태: 내 프로필 사진 + 로그아웃 버튼
-export function Header({ user, authLoading, signingIn, onLogin, onLogout }: HeaderProps) {
+// - 로그인 상태: 프로필 사진 → 클릭 시 프로필 드롭다운 (Base UI Menu)
+export function Header({
+  user,
+  displayName,
+  email,
+  authLoading,
+  signingIn,
+  previewHref,
+  onLogin,
+  onLogout,
+  onCopyLink,
+}: HeaderProps) {
+  const name = displayName || (user ? getDisplayName(user) : "");
+  const mail = email || user?.email || "";
+
   return (
     <header className="grid grid-cols-[1fr_auto_1fr] items-center h-12">
       {/* 좌측 여백 (로고 가운데 정렬용) */}
@@ -30,31 +56,63 @@ export function Header({ user, authLoading, signingIn, onLogin, onLogout }: Head
       </span>
 
       {/* 우측 로그인 영역 */}
-      <div className="flex items-center justify-end gap-1.5 min-w-0">
+      <div className="flex items-center justify-end min-w-0">
         {authLoading ? (
           <div aria-hidden="true" className="h-9 w-24 rounded-full bg-[#F2F4F6] animate-pulse" />
         ) : user ? (
-          <>
-            <Avatar className="size-8 border border-black/5 shadow-none" title={getDisplayName(user)}>
-              {user.photoURL && (
-                <AvatarImage src={user.photoURL} alt="내 프로필 사진" referrerPolicy="no-referrer" />
-              )}
-              <AvatarFallback className="size-full rounded-full bg-secondary flex items-center justify-center">
-                <UserIcon className="size-4 text-muted-foreground" />
-              </AvatarFallback>
-            </Avatar>
-            {/* 로그아웃: Base UI Button(ghost) */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={onLogout}
-              className="rounded-full text-[#4E5968] hover:bg-[#F2F4F6] hover:text-[#191F28]"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="프로필 메뉴 열기"
+              title={name}
+              className="rounded-full outline-none cursor-pointer transition-shadow hover:ring-2 hover:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary/40 data-popup-open:ring-2 data-popup-open:ring-primary/40"
             >
-              <LogOut aria-hidden="true" />
-              로그아웃
-            </Button>
-          </>
+              <Avatar className="size-9 border border-black/5 shadow-none">
+                {user.photoURL && (
+                  <AvatarImage src={user.photoURL} alt="내 프로필 사진" referrerPolicy="no-referrer" />
+                )}
+                <AvatarFallback className="size-full rounded-full bg-secondary flex items-center justify-center">
+                  <UserIcon className="size-4 text-muted-foreground" />
+                </AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" sideOffset={8} className="w-64 p-1.5 rounded-xl">
+              {/* 내 이름 · 이메일 */}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="px-2.5 py-2">
+                  <p className="text-[15px] font-bold text-[#191F28] truncate">{name}</p>
+                  <p className="mt-0.5 text-[12px] font-normal text-[#8B95A1] truncate">{mail}</p>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+
+              {/* 내 페이지 미리보기 (새 탭) */}
+              <DropdownMenuItem
+                render={<a href={previewHref} target="_blank" rel="noopener noreferrer" />}
+                className="px-2.5 py-2 text-[14px] text-[#333D4B] cursor-pointer"
+              >
+                <Eye aria-hidden="true" />
+                내 페이지 미리보기
+              </DropdownMenuItem>
+
+              {/* 링크 복사 */}
+              <DropdownMenuItem onClick={onCopyLink} className="px-2.5 py-2 text-[14px] text-[#333D4B] cursor-pointer">
+                <Copy aria-hidden="true" />
+                링크 복사
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+
+              {/* 로그아웃 (빨간색) */}
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={onLogout}
+                className="px-2.5 py-2 text-[14px] font-semibold cursor-pointer"
+              >
+                <LogOut aria-hidden="true" />
+                로그아웃
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         ) : (
           <GoogleLoginButton onClick={onLogin} loading={signingIn} />
         )}
