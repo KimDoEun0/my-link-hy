@@ -18,11 +18,13 @@ import {
   DISPLAY_NAME_MAX,
   DisplayNameTakenError,
   SOCIAL_FIELDS,
+  USERNAME_MAX,
+  UsernameTakenError,
   profileFormSchema,
   profileToFormValues,
 } from "@/lib/profile";
 import type { UserProfile } from "@/lib/auth";
-import { useDisplayNameCheck } from "@/hooks/useDisplayNameCheck";
+import { useDisplayNameCheck, useUsernameCheck } from "@/hooks/useDisplayNameCheck";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { SocialIconBar } from "./SocialIconBar";
 
@@ -159,7 +161,7 @@ export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
 
   if (!editing) {
     return (
-      <h1 className="mt-2 text-[22px] font-bold tracking-tight text-[#191F28]">
+      <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
         <HoverEditTrigger label="표시 이름 수정" onEdit={start}>
           {profile.displayName}
         </HoverEditTrigger>
@@ -184,7 +186,7 @@ export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
       onBlur={(e) => {
         if (leftEditor(e)) save();
       }}
-      className="mt-2 w-full max-w-[340px] space-y-1.5"
+      className="mt-4 w-full max-w-[340px] space-y-1.5"
     >
       <div className="flex items-center gap-2">
         <Input
@@ -212,6 +214,125 @@ export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
         <FieldStatus tone="muted">
           {typed.length}/{DISPLAY_NAME_MAX} · Enter 또는 바깥 클릭 시 저장 · Esc 취소
         </FieldStatus>
+      )}
+    </form>
+  );
+}
+
+// ───────────────────────── username 인라인 수정 ─────────────────────────
+// 공개 주소용 고유 아이디: 영문 소문자 · 숫자 · _ 3~20자, 중복 불가 (usernames/{username})
+const usernameSchema = z.object({ username: profileFormSchema.shape.username });
+
+export function InlineUsername({ uid, profile }: InlineFieldProps) {
+  const [editing, setEditing] = useState(false);
+  const updateProfile = useUpdateProfile(uid, profile); // 낙관적 업데이트 (TanStack Query)
+  const current = profile.username ?? "";
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setError,
+    setValue,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm<z.input<typeof usernameSchema>, unknown, z.output<typeof usernameSchema>>({
+    resolver: zodResolver(usernameSchema),
+    defaultValues: { username: current },
+    mode: "onChange",
+  });
+  const typed = useWatch({ control, name: "username" }) ?? "";
+  const check = useUsernameCheck(uid, current, typed, editing && !errors.username);
+
+  const start = () => {
+    reset({ username: current });
+    check.reset();
+    setEditing(true);
+  };
+  const cancel = () => {
+    if (!isSubmitting) setEditing(false);
+  };
+
+  // 저장: 변경 사항이 없으면 Firestore에 쓰지 않고 수정 모드만 종료
+  const save = () => {
+    if (isSubmitting || check.taken) return;
+    void handleSubmit(async ({ username }) => {
+      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
+      try {
+        const changed = await updateProfile.mutateAsync({ username });
+        if (changed) toast.success("username이 수정되었어요");
+      } catch (error) {
+        setEditing(true); // 실패: 이전 username으로 되돌리고 입력값 그대로 다시 수정 모드
+        if (error instanceof UsernameTakenError) check.markTaken();
+        else setError("root", { message: "username을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
+      }
+    })();
+  };
+
+  if (!editing) {
+    return (
+      <HoverEditTrigger label="username 수정" onEdit={start} className="mt-1">
+        <span className="text-[14px] font-medium text-[#4E5968]">{current ? `@${current}` : "@username을 정해 보세요"}</span>
+      </HoverEditTrigger>
+    );
+  }
+
+  return (
+    <form
+      aria-label="username 수정"
+      noValidate
+      onSubmit={(e) => {
+        e.preventDefault();
+        save();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          e.preventDefault();
+          cancel();
+        }
+      }}
+      onBlur={(e) => {
+        if (leftEditor(e)) save();
+      }}
+      className="mt-1.5 w-full max-w-[340px] space-y-1.5"
+    >
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#8B95A1]">
+            @
+          </span>
+          <Input
+            autoFocus
+            maxLength={USERNAME_MAX + 1}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            aria-label="username"
+            aria-invalid={!!errors.username || check.taken}
+            disabled={isSubmitting}
+            {...register("username", {
+              // 입력하는 대로 소문자 · 앞의 @ 제거
+              onChange: (e) => {
+                const v = String(e.target.value).replace(/^@/, "").toLowerCase();
+                if (v !== e.target.value) setValue("username", v, { shouldValidate: true, shouldDirty: true });
+              },
+            })}
+            className={cn(inlineInputClass, "h-10 pl-7 text-center text-[14px]")}
+          />
+        </div>
+        <EditActions saving={isSubmitting} onCancel={cancel} onSave={save} />
+      </div>
+      {errors.username ? (
+        <FieldStatus tone="error">{errors.username.message}</FieldStatus>
+      ) : check.taken ? (
+        <FieldStatus tone="error">이미 사용 중인 username이에요. 다른 username을 입력해주세요.</FieldStatus>
+      ) : check.checking ? (
+        <FieldStatus tone="muted">사용할 수 있는 username인지 확인하고 있어요…</FieldStatus>
+      ) : check.available ? (
+        <FieldStatus tone="success">사용할 수 있는 username이에요</FieldStatus>
+      ) : errors.root ? (
+        <FieldStatus tone="error">{errors.root.message}</FieldStatus>
+      ) : (
+        <FieldStatus tone="muted">영문 소문자 · 숫자 · _ 3~{USERNAME_MAX}자 · Enter 또는 바깥 클릭 시 저장 · Esc 취소</FieldStatus>
       )}
     </form>
   );
@@ -642,14 +763,7 @@ export function InlineSocials({ uid, profile }: InlineFieldProps) {
           <Pencil className="size-4" aria-hidden="true" />
         </button>
       </div>
-    ) : (
-      <HoverEditTrigger label="소셜 링크 추가" onEdit={start} className="mt-2">
-        <span className="flex items-center gap-1 text-[14px] text-[#8B95A1]">
-          <Plus className="size-3.5" aria-hidden="true" />
-          소셜 링크를 추가해 보세요
-        </span>
-      </HoverEditTrigger>
-    );
+    ) : null; // 등록된 소셜 링크가 없으면 아무것도 표시하지 않음
   }
 
   return (

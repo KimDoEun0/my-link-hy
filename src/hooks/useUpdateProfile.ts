@@ -48,8 +48,8 @@ export function useUpdateProfile(uid: string, profile: UserProfile) {
     },
 
     onSuccess: (changed) => {
-      // 이름이 바뀌었을 수 있으므로 중복 확인 캐시만 비움
-      if (changed) queryClient.removeQueries({ queryKey: queryKeys.displayNameAvailableAll });
+      // 이름 · username이 바뀌었을 수 있으므로 중복 확인 캐시만 비움
+      if (changed) queryClient.removeQueries({ queryKey: queryKeys.availabilityAll() });
     },
   });
 }

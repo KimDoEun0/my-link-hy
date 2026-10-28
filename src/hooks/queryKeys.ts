@@ -3,6 +3,7 @@ export const queryKeys = {
   profileSync: (uid: string | null) => ["profileSync", uid] as const, // 로그인 시 users/{uid} 저장
   profile: (uid: string | null) => ["profile", uid] as const, // users/{uid} 프로필
   links: (uid: string | null) => ["links", uid] as const, // users/{uid}/links 링크 목록
-  displayNameAvailable: (uid: string, key: string) => ["displayNameAvailable", uid, key] as const, // 이름 중복 확인
-  displayNameAvailableAll: ["displayNameAvailable"] as const,
+  // 중복 확인 (표시 이름 · username)
+  availability: (kind: "displayName" | "username", uid: string, key: string) => ["availability", kind, uid, key] as const,
+  availabilityAll: (kind?: "displayName" | "username") => (kind ? (["availability", kind] as const) : (["availability"] as const)),
 };

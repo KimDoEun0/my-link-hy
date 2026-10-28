@@ -25,6 +25,8 @@ export interface LinkCardProps {
   onUpdate?: (id: string, data: { title: string; url: string }) => Promise<void>;
   // 삭제 실행 (지정 시 삭제 버튼 표시). 실패 시 예외를 던지면 삭제 모달에 오류 표시
   onDelete?: (id: string) => Promise<void>;
+  // 읽기 전용: 수정 · 삭제 버튼과 수정 폼 · 삭제 모달을 숨기고 링크 클릭만 가능 (공개 프로필 페이지)
+  readonly?: boolean;
 }
 
 // 링크 카드: 수정(인라인 편집) · 삭제(확인 모달) 상태를 카드마다 독립적으로 관리
@@ -41,6 +43,7 @@ export function LinkCard({
   onCardClick,
   onUpdate,
   onDelete,
+  readonly = false,
 }: LinkCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -48,10 +51,12 @@ export function LinkCard({
   // "Favicon" 아이콘이면 Google 파비콘 API로 사이트 아이콘을 자동 표시
   const useFavicon = iconName?.toLowerCase() === "favicon";
   const iconStyle = getBlockIcon(iconName || title);
-  const hasActions = !!(onUpdate || onDelete);
+  const canEdit = !readonly && !!onUpdate;
+  const canDelete = !readonly && !!onDelete;
+  const hasActions = canEdit || canDelete;
 
   // 인라인 수정 모드
-  if (isEditing && onUpdate) {
+  if (isEditing && canEdit && onUpdate) {
     return (
       <LinkEditForm
         initialTitle={title}
@@ -116,7 +121,7 @@ export function LinkCard({
         {/* 우측 수정 · 삭제 버튼 (항상 표시) / 버튼이 없으면 대칭용 빈 공간 */}
         {/* box-content: 좌측(pl-6 + 아이콘 영역)과 너비를 같게 맞춰 제목을 정확히 가운데 정렬 */}
         <div className={cn(sideWidth, "box-content pr-6 flex items-center justify-end gap-0.5 shrink-0")}>
-          {onUpdate && (
+          {canEdit && (
             <button
               type="button"
               onClick={() => setIsEditing(true)}
@@ -128,7 +133,7 @@ export function LinkCard({
               <Pencil className="size-4" />
             </button>
           )}
-          {onDelete && (
+          {canDelete && (
             <button
               type="button"
               onClick={() => setIsDeleteOpen(true)}
@@ -144,7 +149,7 @@ export function LinkCard({
       </div>
 
       {/* 삭제 확인 모달 */}
-      {onDelete && (
+      {canDelete && onDelete && (
         <DeleteLinkDialog
           target={isDeleteOpen ? { id, title } : null}
           onConfirm={onDelete}

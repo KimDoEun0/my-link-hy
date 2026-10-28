@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FirebaseError } from "firebase/app";
 import { toast } from "sonner";
 import { useMyLinkStore } from "@/lib/useMyLinkStore";
 import { initialProfile } from "@/data/initialData";
 import type { ContentBlock } from "@/types/mylink";
-import { useQueryClient } from "@tanstack/react-query";
 import { useAddLink, useDeleteLink, useLinks, useUpdateLink } from "@/hooks/useLinks";
-import { getDoc } from "firebase/firestore";
-import { getDisplayName, signInWithGoogle, signOutUser, userProfileRef } from "@/lib/auth";
+import { getDisplayName } from "@/lib/auth";
+import { personalPagePath } from "@/lib/publicProfile";
+import { useAuthActions } from "@/hooks/useAuthActions";
 import { useUser } from "@/hooks/useUser";
 import { Header, Landing } from "@/components/auth";
 import {
@@ -19,6 +18,7 @@ import {
   AddLinkDialog,
   LinkCardSkeleton,
   InlineDisplayName,
+  InlineUsername,
   InlineEmail,
   InlineBio,
   InlinePhoto,
@@ -34,13 +34,6 @@ import { Eye, Plus, User } from "lucide-react";
 const MY_PAGE_PATH = "/mypage";
 const PREVIEW_PATH = "/mypage/preview";
 
-// Firestore 타임스탬프 → "2026.10.25" 형식
-const formatDate = (value?: { toDate: () => Date }) => {
-  if (!value) return "";
-  const d = value.toDate();
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, "0")}.${String(d.getDate()).padStart(2, "0")}`;
-};
-
 interface MyLinkPageProps {
   // 미리보기 모드: 방문자에게 보이는 모습 (편집 버튼 · 이메일 등 숨김)
   preview?: boolean;
@@ -55,12 +48,10 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
   // 로그인 상태 + Firestore 프로필(users/{uid}) 조회 (TanStack Query, 실시간 구독 없음)
   const { user, profile: userProfile, loading: authLoading } = useUser();
   const uid = user?.uid ?? null;
-  const [signingIn, setSigningIn] = useState(false);
 
   // 링크 목록: TanStack Query로 users/{uid}/links 1회 조회 (실시간 · 자동 재요청 없음)
   // - uid가 쿼리 키에 들어가 계정이 바뀌면 캐시가 따로 관리됨
   // - 추가 · 수정 · 삭제는 뮤테이션 성공 후 캐시만 갱신 (다시 조회하지 않음)
-  const queryClient = useQueryClient();
   const linksQuery = useLinks(uid);
   const links = linksQuery.data ?? [];
   const isLoading = !!uid && linksQuery.isPending;
@@ -86,81 +77,20 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
     setTimeout(() => setToastVisible(false), 2400);
   };
 
-  const handleShare = async () => {
-    if (typeof window === "undefined") return;
+  // 로그인 · 로그아웃 (공용 훅, 로그아웃 시 쿼리 캐시 비움)
+  const { signingIn, login: handleLogin, logout: handleLogout } = useAuthActions(showToast);
 
-    const shareUrl = `${window.location.origin}${MY_PAGE_PATH}`;
-    let shared = false;
+  // 내 개인 페이지 주소: /{표시 이름} (프로필을 불러온 뒤 사용 가능)
+  const myPagePath = userProfile?.displayName ? personalPagePath(userProfile.displayName) : null;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${profile.displayName || "MyLink"}`,
-          text: profile.bio || "나의 멀티링크 모음",
-          url: shareUrl,
-        });
-        shared = true;
-        showToast("프로필 링크를 공유했어요");
-      } catch {
-        // cancelled or failed, fallback to clipboard
-      }
-    }
-
-    if (!shared) await handleCopyLink();
-  };
-
-  // 내 페이지 링크 복사 → sonner 토스트로 안내
+  // 내 개인 페이지 링크(/{표시 이름}) 복사 → sonner 토스트로 안내
   const handleCopyLink = async () => {
-    const url = `${window.location.origin}${MY_PAGE_PATH}`;
+    const url = `${window.location.origin}${myPagePath ?? MY_PAGE_PATH}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("내 페이지 링크가 복사되었어요", { description: url });
     } catch {
       toast.error("링크를 복사하지 못했어요", { description: "브라우저의 클립보드 권한을 확인해주세요." });
-    }
-  };
-
-  // Google 로그인 (팝업)
-  const handleLogin = async () => {
-    setSigningIn(true);
-    // 팝업을 닫으면 Firebase가 이를 감지하기까지 수 초가 걸리므로,
-    // 원래 창으로 포커스가 돌아오면 바로 버튼을 다시 사용할 수 있게 함
-    // (로그인에 성공하면 로그인 상태 감지로 화면이 바로 바뀜)
-    const handleFocusBack = () => setSigningIn(false);
-    const focusTimer = window.setTimeout(
-      () => window.addEventListener("focus", handleFocusBack, { once: true }),
-      500
-    );
-    try {
-      const signedIn = await signInWithGoogle();
-      // 사용자가 수정한 표시 이름(users/{uid})으로 인사, 첫 가입이라 아직 없으면 이메일 앞부분
-      const saved = await getDoc(userProfileRef(signedIn.uid)).catch(() => null);
-      const name = (saved?.data()?.displayName as string | undefined) || getDisplayName(signedIn);
-      showToast(`${name}님, 환영해요 👋`);
-    } catch (error) {
-      const code = error instanceof FirebaseError ? error.code : "";
-      // 사용자가 팝업을 닫은 경우는 안내하지 않음
-      if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request") return;
-      showToast(
-        code === "auth/popup-blocked"
-          ? "팝업이 차단되었어요. 브라우저에서 팝업을 허용해주세요."
-          : "로그인에 실패했어요. 잠시 후 다시 시도해주세요."
-      );
-    } finally {
-      window.clearTimeout(focusTimer);
-      window.removeEventListener("focus", handleFocusBack);
-      setSigningIn(false);
-    }
-  };
-
-  // 로그아웃: 화면의 유저 데이터도 함께 비움
-  const handleLogout = async () => {
-    try {
-      await signOutUser();
-      queryClient.clear(); // 로그아웃하면 캐시(프로필 · 링크)를 비워 다음 로그인 때 다시 조회
-      showToast("로그아웃되었어요");
-    } catch {
-      showToast("로그아웃에 실패했어요. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -199,10 +129,28 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
   const visibleBlocks = links.filter((b) => b.isVisible !== false);
 
   return (
-    <div className="min-h-screen bg-white py-6 sm:py-10 px-4 flex justify-center font-[-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif] selection:bg-accent selection:text-primary">
-      {/* 📱 중앙 컬럼 컨테이너 (스크린샷 비율: max-w-[460px]) */}
+    <div className="min-h-screen bg-[#F9FAFB] flex flex-col font-[-apple-system,BlinkMacSystemFont,'Pretendard',sans-serif] selection:bg-accent selection:text-primary">
+      {/* 상단 헤더 (전체 너비): 로고 + 로그인 / 프로필 드롭다운 (미리보기에서는 안내 바로 대체) */}
+      {!(preview && user) && (
+        <Header
+          user={user}
+          displayName={userProfile?.displayName}
+          email={userProfile?.email}
+          photoURL={userProfile ? userProfile.photoURL : user?.photoURL ?? ""}
+          authLoading={authLoading}
+          signingIn={signingIn}
+          previewHref={myPagePath ?? PREVIEW_PATH}
+          myPageHref={myPagePath ?? undefined}
+          onLogin={handleLogin}
+          onLogout={handleLogout}
+          onCopyLink={handleCopyLink}
+        />
+      )}
+
+      <main className="flex-1 w-full px-4 py-6 sm:py-8 flex justify-center">
+      {/* 📱 중앙 컬럼 컨테이너 (max-w-[460px]) */}
       <div className="w-full max-w-[460px] flex flex-col space-y-4">
-        {preview && user ? (
+        {preview && user && (
           // 미리보기 안내 바 (헤더 대신 표시)
           <div
             role="status"
@@ -217,20 +165,6 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
               편집으로 돌아가기
             </a>
           </div>
-        ) : (
-          // 상단 헤더: 로고 + 로그인 / 프로필 드롭다운
-          <Header
-            user={user}
-            displayName={userProfile?.displayName}
-            email={userProfile?.email}
-            photoURL={userProfile ? userProfile.photoURL : user?.photoURL ?? ""}
-            authLoading={authLoading}
-            signingIn={signingIn}
-            previewHref={PREVIEW_PATH}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            onCopyLink={handleCopyLink}
-          />
         )}
 
         {authLoading ? (
@@ -268,18 +202,21 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
             </AvatarFallback>
           </Avatar>
           )}
-          {!preview && (
-            <span className="mt-4 text-[12px] font-semibold text-primary bg-accent px-2.5 py-0.5 rounded-full">
-              마이페이지
-            </span>
-          )}
           {/* 표시 이름: 마이페이지에서는 마우스를 올리면 인라인 수정 */}
           {!preview && uid && userProfile ? (
             <InlineDisplayName uid={uid} profile={userProfile} />
           ) : (
-            <h1 className={`${preview ? "mt-4" : "mt-2"} text-[22px] font-bold tracking-tight text-[#191F28]`}>
+            <h1 className={`mt-4 text-[22px] font-bold tracking-tight text-[#191F28]`}>
               {userProfile?.displayName || getDisplayName(user)}
             </h1>
+          )}
+          {/* username(@아이디): 마이페이지에서는 마우스를 올리면 인라인 수정, 미리보기에서는 텍스트 */}
+          {!preview && uid && userProfile ? (
+            <InlineUsername uid={uid} profile={userProfile} />
+          ) : (
+            userProfile?.username && (
+              <p className="mt-1 text-[14px] font-medium text-[#4E5968]">@{userProfile.username}</p>
+            )
           )}
           {/* 이메일: 마이페이지에서는 마우스를 올리면 인라인 수정 (미리보기에서는 숨김) */}
           {!preview &&
@@ -305,12 +242,6 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
             <div className="mt-1">
               <SocialIconBar socials={userProfile?.socials} />
             </div>
-          )}
-          {!preview && userProfile?.createdAt && (
-            <p className="mt-3 text-[13px] text-[#8B95A1]">
-              {formatDate(userProfile.createdAt)} 가입
-              {userProfile.lastLoginAt && <> · 최근 로그인 {formatDate(userProfile.lastLoginAt)}</>}
-            </p>
           )}
         </section>
 
@@ -384,8 +315,9 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
                 badge={block.badge}
                 iconName={block.iconName}
                 onClick={handleLinkClick}
-                onUpdate={preview ? undefined : handleUpdateLink}
-                onDelete={preview ? undefined : handleDeleteLink}
+                onUpdate={handleUpdateLink}
+                onDelete={handleDeleteLink}
+                readonly={preview}
               />
             );
           })}
@@ -394,17 +326,13 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
           </>
         )}
 
-        {/* 하단 보조 액션 (공유) */}
-        <div className="pt-6 pb-8 flex items-center justify-end text-xs text-muted-foreground/60 px-1 border-t border-gray-100">
-          <button
-            type="button"
-            onClick={handleShare}
-            className="hover:text-foreground transition-colors"
-          >
-            링크 공유하기 ↗
-          </button>
-        </div>
       </div>
+      </main>
+
+      {/* 하단 푸터 */}
+      <footer className="py-8 text-center text-[12px] text-[#8B95A1]">
+        © {new Date().getFullYear()} MyLink. All rights reserved.
+      </footer>
 
       {/* TDS Toast 알림 */}
       <ProfileToast
