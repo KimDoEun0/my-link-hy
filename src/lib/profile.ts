@@ -1,11 +1,13 @@
 import { z } from "zod";
 import {
+  collection,
   doc,
-  getDoc,
-  runTransaction,
+  getDocs,
+  limit,
+  query,
   serverTimestamp,
   updateDoc,
-  type Transaction,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firestore";
 import { isValidLinkUrl, normalizeUrl } from "@/lib/linkFormSchema";
@@ -16,7 +18,7 @@ export const DISPLAY_NAME_MAX = 30; // 표시 이름 최대 30자
 export const BIO_MAX = 120; // 한 줄 소개 최대 120자 (줄바꿈 허용)
 export const USERNAME_MIN = 3; // username 최소 3자
 export const USERNAME_MAX = 20; // username 최대 20자
-// username: 공개 주소용 고유 아이디 (영문 소문자 · 숫자 · 밑줄)
+// username: 공개 주소(/{username})용 고유 아이디 (영문 소문자 · 숫자 · 밑줄), 가입 시 정해지고 수정 불가
 export const USERNAME_PATTERN = /^[a-z0-9_]+$/;
 
 // username 정규화: 앞뒤 공백 제거 · 앞의 @ 제거 · 소문자
@@ -52,11 +54,6 @@ export const SOCIAL_FIELDS = [
 
 export type SocialKey = (typeof SOCIAL_FIELDS)[number]["key"];
 
-// 중복 확인용 이름 키: 앞뒤 공백 제거, 연속 공백 1개로, 대소문자 구분 없음
-export function displayNameKey(name: string): string {
-  return name.normalize("NFC").trim().replace(/\s+/g, " ").toLowerCase();
-}
-
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.replace(/^mailto:/i, ""));
 
 // ───────────────────────── 프로필 수정 폼 검증 (zod) ─────────────────────────
@@ -65,20 +62,7 @@ export const profileFormSchema = z.object({
     .string()
     .trim()
     .min(1, "표시 이름을 입력해주세요.")
-    .max(DISPLAY_NAME_MAX, `표시 이름은 ${DISPLAY_NAME_MAX}자 이하로 입력해주세요.`)
-    // Firestore 문서 id로 쓰기 때문에 / 와 . , .. 은 사용할 수 없음
-    .refine((v) => !v.includes("/") && v !== "." && v !== "..", "표시 이름에 / 는 사용할 수 없어요."),
-  // username: 공개 주소용 고유 아이디 (영문 소문자 · 숫자 · _ 3~20자, 중복 불가)
-  username: z
-    .string()
-    .transform(normalizeUsername)
-    .pipe(
-      z
-        .string()
-        .min(USERNAME_MIN, `username은 ${USERNAME_MIN}자 이상 입력해주세요.`)
-        .max(USERNAME_MAX, `username은 ${USERNAME_MAX}자 이하로 입력해주세요.`)
-        .regex(USERNAME_PATTERN, "영문 소문자, 숫자, 밑줄(_)만 사용할 수 있어요.")
-    ),
+    .max(DISPLAY_NAME_MAX, `표시 이름은 ${DISPLAY_NAME_MAX}자 이하로 입력해주세요.`), // 중복 허용
   // 프로필에 표시하는 연락용 이메일 (로그인용 Google 계정 이메일과는 별개)
   email: z.string().trim().min(1, "이메일을 입력해주세요.").refine(isEmail, "올바른 이메일 주소를 입력해주세요."),
   bio: z.string().trim().max(BIO_MAX, `한 줄 소개는 ${BIO_MAX}자 이하로 입력해주세요.`),
@@ -118,7 +102,6 @@ export function normalizeProfile(values: ProfileFormValues) {
   const photo = values.photoURL.trim();
   return {
     displayName: values.displayName.trim().replace(/\s+/g, " "),
-    username: normalizeUsername(values.username),
     email: values.email.trim().replace(/^mailto:/i, ""),
     bio: values.bio.trim(),
     photoURL: photo.startsWith("data:image/") ? photo : photo ? normalizeUrl(photo) : "",
@@ -129,58 +112,30 @@ export function normalizeProfile(values: ProfileFormValues) {
 export type NormalizedProfile = ReturnType<typeof normalizeProfile>;
 
 // ───────────────────────── Firestore ─────────────────────────
-// displayNames/{이름 키} → { uid } : 표시 이름 예약 장부 (이름 1개 = 문서 1개)
-export const displayNameRef = (key: string) => doc(db, "displayNames", key);
+// 별도 예약 컬렉션 없이 users 컬렉션만 사용
+const usersCollection = collection(db, "users");
 const userRef = (uid: string) => doc(db, "users", uid);
 
-export class DisplayNameTakenError extends Error {
-  constructor() {
-    super("이미 사용 중인 표시 이름이에요.");
+// username으로 유저 uid 조회 (users에서 username 필드 검색, 없으면 null)
+export async function findUidByUsername(username: string): Promise<string | null> {
+  const snap = await getDocs(query(usersCollection, where("username", "==", normalizeUsername(username)), limit(1)));
+  return snap.empty ? null : snap.docs[0].id;
+}
+
+// 가입 시 사용할 username 찾기: 이미 쓰는 사람이 있으면 숫자를 붙임 (kim → kim2 → kim3 ...)
+export async function findAvailableUsername(uid: string, base: string): Promise<string> {
+  for (let n = 1; n <= 50; n++) {
+    const candidate = usernameCandidate(base, n);
+    const owner = await findUidByUsername(candidate);
+    if (!owner || owner === uid) return candidate;
   }
+  throw new Error("사용할 수 있는 username을 찾지 못했어요.");
 }
 
-// 표시 이름 사용 가능 여부 (본인이 쓰고 있는 이름이면 사용 가능)
-export async function isDisplayNameAvailable(uid: string, name: string): Promise<boolean> {
-  const snap = await getDoc(displayNameRef(displayNameKey(name)));
-  return !snap.exists() || snap.data().uid === uid;
-}
-
-// 트랜잭션 안에서 이름 예약 (다른 사람이 쓰고 있으면 실패)
-export async function reserveDisplayName(tx: Transaction, uid: string, name: string) {
-  const key = displayNameKey(name);
-  const snap = await tx.get(displayNameRef(key));
-  if (snap.exists() && snap.data().uid !== uid) throw new DisplayNameTakenError();
-  return key;
-}
-
-// usernames/{username} → { uid } : username 예약 장부 (username 1개 = 문서 1개)
-export const usernameRef = (username: string) => doc(db, "usernames", username);
-
-export class UsernameTakenError extends Error {
-  constructor() {
-    super("이미 사용 중인 username이에요.");
-  }
-}
-
-// username 사용 가능 여부 (본인이 쓰고 있으면 사용 가능)
-export async function isUsernameAvailable(uid: string, username: string): Promise<boolean> {
-  const snap = await getDoc(usernameRef(normalizeUsername(username)));
-  return !snap.exists() || snap.data().uid === uid;
-}
-
-// 트랜잭션 안에서 username 예약 확인 (다른 사람이 쓰고 있으면 실패)
-export async function reserveUsername(tx: Transaction, uid: string, username: string) {
-  const key = normalizeUsername(username);
-  const snap = await tx.get(usernameRef(key));
-  if (snap.exists() && snap.data().uid !== uid) throw new UsernameTakenError();
-  return key;
-}
-
-// 바뀐 항목 계산 (같으면 빈 객체)
+// 바뀐 항목 계산 (같으면 빈 객체) — username은 수정 불가라 비교하지 않음
 function diffProfile(prev: NormalizedProfile, next: NormalizedProfile) {
   const changes: Partial<NormalizedProfile> = {};
   if (prev.displayName !== next.displayName) changes.displayName = next.displayName;
-  if (prev.username !== next.username) changes.username = next.username;
   if (prev.email !== next.email) changes.email = next.email;
   if (prev.bio !== next.bio) changes.bio = next.bio;
   if (prev.photoURL !== next.photoURL) changes.photoURL = next.photoURL;
@@ -190,7 +145,6 @@ function diffProfile(prev: NormalizedProfile, next: NormalizedProfile) {
 }
 
 // 프로필 수정: 변경된 항목만 업데이트, 변경 사항이 없으면 Firestore에 쓰지 않고 false 반환
-// - 표시 이름 · username이 바뀌면 트랜잭션으로 새 값 예약 · 예전 값 해제 · 프로필 변경을 한 번에 처리
 export async function updateUserProfile(
   uid: string,
   prev: NormalizedProfile,
@@ -198,38 +152,7 @@ export async function updateUserProfile(
 ): Promise<boolean> {
   const changes = diffProfile(prev, next);
   if (Object.keys(changes).length === 0) return false;
-
-  const oldNameKey = displayNameKey(prev.displayName);
-  const newNameKey = displayNameKey(next.displayName);
-  const nameKeyChanged = changes.displayName !== undefined && oldNameKey !== newNameKey;
-  const usernameChanged = changes.username !== undefined && prev.username !== next.username;
-
-  if (!nameKeyChanged && !usernameChanged) {
-    // 예약 장부를 건드릴 필요 없는 변경 (이름 대소문자 · 공백, 소개, 사진 등)
-    await updateDoc(userRef(uid), { ...changes, updatedAt: serverTimestamp() });
-    return true;
-  }
-
-  await runTransaction(db, async (tx) => {
-    // 1) 읽기 (트랜잭션은 모든 읽기가 쓰기보다 먼저)
-    const oldName = nameKeyChanged ? await tx.get(displayNameRef(oldNameKey)) : null;
-    if (nameKeyChanged) await reserveDisplayName(tx, uid, next.displayName);
-    const oldUser = usernameChanged && prev.username ? await tx.get(usernameRef(prev.username)) : null;
-    if (usernameChanged) await reserveUsername(tx, uid, next.username);
-
-    // 2) 쓰기
-    const extra: Record<string, unknown> = {};
-    if (nameKeyChanged) {
-      tx.set(displayNameRef(newNameKey), { uid, displayName: next.displayName, updatedAt: serverTimestamp() });
-      if (oldName?.exists() && oldName.data().uid === uid) tx.delete(displayNameRef(oldNameKey));
-      extra.displayNameKey = newNameKey;
-    }
-    if (usernameChanged) {
-      tx.set(usernameRef(next.username), { uid, updatedAt: serverTimestamp() });
-      if (oldUser?.exists() && oldUser.data().uid === uid) tx.delete(usernameRef(prev.username));
-    }
-    tx.update(userRef(uid), { ...changes, ...extra, updatedAt: serverTimestamp() });
-  });
+  await updateDoc(userRef(uid), { ...changes, updatedAt: serverTimestamp() });
   return true;
 }
 
@@ -237,7 +160,6 @@ export async function updateUserProfile(
 // users/{uid} 프로필 → 폼 값 (프로필 수정 다이얼로그 · 인라인 수정 공용)
 export function profileToFormValues(profile: {
   displayName?: string;
-  username?: string;
   email?: string;
   bio?: string;
   photoURL?: string;
@@ -245,7 +167,6 @@ export function profileToFormValues(profile: {
 }): ProfileFormValues {
   return {
     displayName: profile.displayName ?? "",
-    username: profile.username ?? "",
     email: profile.email ?? "",
     bio: profile.bio ?? "",
     photoURL: profile.photoURL ?? "",

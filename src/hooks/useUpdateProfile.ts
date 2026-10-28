@@ -2,7 +2,6 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  displayNameKey,
   normalizeProfile,
   profileToFormValues,
   saveProfileFields,
@@ -36,7 +35,6 @@ export function useUpdateProfile(uid: string, profile: UserProfile) {
       for (const field of Object.keys(patch) as (keyof ProfilePatch)[]) {
         Object.assign(optimistic, { [field]: next[field] });
       }
-      if (patch.displayName !== undefined) optimistic.displayNameKey = displayNameKey(next.displayName);
 
       queryClient.setQueryData<UserProfile | null>(key, (prev) => (prev ? { ...prev, ...optimistic } : prev));
       return { previous };
@@ -47,9 +45,5 @@ export function useUpdateProfile(uid: string, profile: UserProfile) {
       if (context) queryClient.setQueryData(key, context.previous);
     },
 
-    onSuccess: (changed) => {
-      // 이름 · username이 바뀌었을 수 있으므로 중복 확인 캐시만 비움
-      if (changed) queryClient.removeQueries({ queryKey: queryKeys.availabilityAll() });
-    },
   });
 }

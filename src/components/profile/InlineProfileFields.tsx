@@ -15,14 +15,12 @@ import { resizeImage } from "@/lib/image";
 import { inlineCancelButtonClass, inlineInputClass, inlineSaveButtonClass } from "./inlineEditStyles";
 import {
   BIO_MAX,
+  DISPLAY_NAME_MAX,
   SOCIAL_FIELDS,
-  USERNAME_MAX,
-  UsernameTakenError,
   profileFormSchema,
   profileToFormValues,
 } from "@/lib/profile";
 import type { UserProfile } from "@/lib/auth";
-import { useUsernameCheck } from "@/hooks/useDisplayNameCheck";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { SocialIconBar } from "./SocialIconBar";
 
@@ -111,33 +109,29 @@ function FieldStatus({ tone, children }: { tone: "error" | "success" | "muted"; 
 // 포커스가 편집 영역 밖으로 나갔는지 (제목 ↔ 버튼 이동은 제외)
 const leftEditor = (e: React.FocusEvent<HTMLElement>) => !e.currentTarget.contains(e.relatedTarget as Node | null);
 
-// ───────────────────────── username 인라인 수정 ─────────────────────────
-// 공개 주소용 고유 아이디: 영문 소문자 · 숫자 · _ 3~20자, 중복 불가 (usernames/{username})
-const usernameSchema = z.object({ username: profileFormSchema.shape.username });
+// ───────────────────────── 표시 이름 인라인 수정 ─────────────────────────
+// 화면에 보이는 이름 (중복 허용, 공개 주소는 username을 사용하므로 영향 없음)
+const nameSchema = z.object({ displayName: profileFormSchema.shape.displayName });
 
-export function InlineUsername({ uid, profile }: InlineFieldProps) {
+export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
   const [editing, setEditing] = useState(false);
   const updateProfile = useUpdateProfile(uid, profile); // 낙관적 업데이트 (TanStack Query)
-  const current = profile.username ?? "";
   const {
     register,
     handleSubmit,
     reset,
     setError,
-    setValue,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<z.input<typeof usernameSchema>, unknown, z.output<typeof usernameSchema>>({
-    resolver: zodResolver(usernameSchema),
-    defaultValues: { username: current },
+  } = useForm<z.infer<typeof nameSchema>>({
+    resolver: zodResolver(nameSchema),
+    defaultValues: { displayName: profile.displayName },
     mode: "onChange",
   });
-  const typed = useWatch({ control, name: "username" }) ?? "";
-  const check = useUsernameCheck(uid, current, typed, editing && !errors.username);
+  const typed = useWatch({ control, name: "displayName" }) ?? "";
 
   const start = () => {
-    reset({ username: current });
-    check.reset();
+    reset({ displayName: profile.displayName }); // 항상 최신 이름으로 시작
     setEditing(true);
   };
   const cancel = () => {
@@ -146,31 +140,32 @@ export function InlineUsername({ uid, profile }: InlineFieldProps) {
 
   // 저장: 변경 사항이 없으면 Firestore에 쓰지 않고 수정 모드만 종료
   const save = () => {
-    if (isSubmitting || check.taken) return;
-    void handleSubmit(async ({ username }) => {
+    if (isSubmitting) return;
+    void handleSubmit(async ({ displayName }) => {
       setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
       try {
-        const changed = await updateProfile.mutateAsync({ username });
-        if (changed) toast.success("username이 수정되었어요");
-      } catch (error) {
-        setEditing(true); // 실패: 이전 username으로 되돌리고 입력값 그대로 다시 수정 모드
-        if (error instanceof UsernameTakenError) check.markTaken();
-        else setError("root", { message: "username을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
+        const changed = await updateProfile.mutateAsync({ displayName });
+        if (changed) toast.success("이름이 수정되었어요");
+      } catch {
+        setEditing(true); // 실패: 이전 이름으로 되돌리고 입력한 이름 그대로 다시 수정 모드
+        setError("root", { message: "이름을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
       }
     })();
   };
 
   if (!editing) {
     return (
-      <HoverEditTrigger label="username 수정" onEdit={start} className="mt-1">
-        <span className="text-[14px] font-medium text-[#4E5968]">{current ? `@${current}` : "@username을 정해 보세요"}</span>
-      </HoverEditTrigger>
+      <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
+        <HoverEditTrigger label="표시 이름 수정" onEdit={start}>
+          {profile.displayName}
+        </HoverEditTrigger>
+      </h1>
     );
   }
 
   return (
     <form
-      aria-label="username 수정"
+      aria-label="표시 이름 수정"
       noValidate
       onSubmit={(e) => {
         e.preventDefault();
@@ -185,46 +180,28 @@ export function InlineUsername({ uid, profile }: InlineFieldProps) {
       onBlur={(e) => {
         if (leftEditor(e)) save();
       }}
-      className="mt-1.5 w-full max-w-[340px] space-y-1.5"
+      className="mt-4 w-full max-w-[340px] space-y-1.5"
     >
       <div className="flex items-center gap-2">
-        <div className="relative flex-1">
-          <span aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#8B95A1]">
-            @
-          </span>
-          <Input
-            autoFocus
-            maxLength={USERNAME_MAX + 1}
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            aria-label="username"
-            aria-invalid={!!errors.username || check.taken}
-            disabled={isSubmitting}
-            {...register("username", {
-              // 입력하는 대로 소문자 · 앞의 @ 제거
-              onChange: (e) => {
-                const v = String(e.target.value).replace(/^@/, "").toLowerCase();
-                if (v !== e.target.value) setValue("username", v, { shouldValidate: true, shouldDirty: true });
-              },
-            })}
-            className={cn(inlineInputClass, "h-10 pl-7 text-center text-[14px]")}
-          />
-        </div>
+        <Input
+          autoFocus
+          maxLength={DISPLAY_NAME_MAX}
+          aria-label="표시 이름"
+          aria-invalid={!!errors.displayName}
+          disabled={isSubmitting}
+          {...register("displayName")}
+          className={cn(inlineInputClass, "h-11 text-center text-[18px] font-bold")}
+        />
         <EditActions saving={isSubmitting} onCancel={cancel} onSave={save} />
       </div>
-      {errors.username ? (
-        <FieldStatus tone="error">{errors.username.message}</FieldStatus>
-      ) : check.taken ? (
-        <FieldStatus tone="error">이미 사용 중인 username이에요. 다른 username을 입력해주세요.</FieldStatus>
-      ) : check.checking ? (
-        <FieldStatus tone="muted">사용할 수 있는 username인지 확인하고 있어요…</FieldStatus>
-      ) : check.available ? (
-        <FieldStatus tone="success">사용할 수 있는 username이에요</FieldStatus>
+      {errors.displayName ? (
+        <FieldStatus tone="error">{errors.displayName.message}</FieldStatus>
       ) : errors.root ? (
         <FieldStatus tone="error">{errors.root.message}</FieldStatus>
       ) : (
-        <FieldStatus tone="muted">영문 소문자 · 숫자 · _ 3~{USERNAME_MAX}자 · Enter 또는 바깥 클릭 시 저장 · Esc 취소</FieldStatus>
+        <FieldStatus tone="muted">
+          {typed.length}/{DISPLAY_NAME_MAX} · Enter 또는 바깥 클릭 시 저장 · Esc 취소
+        </FieldStatus>
       )}
     </form>
   );

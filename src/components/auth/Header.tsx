@@ -29,8 +29,8 @@ interface HeaderProps {
   photoURL?: string; // users/{uid}의 프로필 이미지 (비어 있으면 기본 아이콘)
   authLoading: boolean; // 첫 로그인 상태 확인 중
   signingIn: boolean; // Google 로그인 진행 중
-  previewHref: string; // 내 페이지 미리보기 주소 (실제 공개 페이지 /{표시 이름}, 새 탭)
-  myPageHref?: string; // 내 개인 페이지 주소 (/{표시 이름}), 프로필을 불러오기 전에는 없음
+  previewHref: string; // 내 페이지 미리보기 주소 (실제 공개 페이지 /{username}, 새 탭)
+  myPageHref?: string; // 내 개인 페이지 주소 (/{username}), 프로필을 불러오기 전에는 없음
   onLogin: () => void;
   onLogout: () => void;
   onCopyLink: () => void;
@@ -77,7 +77,7 @@ export function Header({
       {/* 오른쪽 로그인 영역 */}
       <div className="flex items-center justify-end gap-2 min-w-0">
         {/* 내 페이지 바로가기 (로그인 상태, 아바타 왼쪽, 사각형 Primary 버튼)
-            - 내 공개 페이지(/{표시 이름})를 새 탭으로 열어 지금 화면은 그대로 유지
+            - 내 공개 페이지(/{username})를 새 탭으로 열어 지금 화면은 그대로 유지
             - 이미 내 공개 페이지를 보고 있으면 편집 화면(/mypage)으로 이동 */}
         {user && myPageHref && (
           <Link

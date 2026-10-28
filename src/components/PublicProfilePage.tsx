@@ -16,7 +16,7 @@ import { queryKeys } from "@/hooks/queryKeys";
 const MY_PAGE_PATH = "/mypage";
 const PREVIEW_PATH = "/mypage/preview";
 
-// 공개 프로필 페이지 (/{표시 이름}) — 본인 여부와 관계없이 읽기 전용
+// 공개 프로필 페이지 (/{username}) — 본인 여부와 관계없이 읽기 전용
 // - 프로필: users/{uid}, 링크: users/{uid}/links (TanStack Query 1회 조회, 실시간 구독 없음)
 // - 링크 카드는 readonly로 렌더링해 링크 클릭(새 탭 이동)만 가능
 export function PublicProfilePage({ uid }: { uid: string }) {
@@ -33,7 +33,7 @@ export function PublicProfilePage({ uid }: { uid: string }) {
   const profile = profileQuery.data;
   const links = linksQuery.data ?? [];
 
-  const viewerPagePath = viewerProfile?.displayName ? personalPagePath(viewerProfile.displayName) : undefined;
+  const viewerPagePath = viewerProfile?.username ? personalPagePath(viewerProfile.username) : undefined;
 
   const copyMyLink = async () => {
     const url = `${window.location.origin}${viewerPagePath ?? MY_PAGE_PATH}`;

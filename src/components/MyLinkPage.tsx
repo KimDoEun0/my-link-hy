@@ -17,7 +17,7 @@ import {
   ProfileToast,
   AddLinkDialog,
   LinkCardSkeleton,
-  InlineUsername,
+  InlineDisplayName,
   InlineEmail,
   InlineBio,
   InlinePhoto,
@@ -79,10 +79,10 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
   // 로그인 · 로그아웃 (공용 훅, 로그아웃 시 쿼리 캐시 비움)
   const { signingIn, login: handleLogin, logout: handleLogout } = useAuthActions(showToast);
 
-  // 내 개인 페이지 주소: /{표시 이름} (프로필을 불러온 뒤 사용 가능)
-  const myPagePath = userProfile?.displayName ? personalPagePath(userProfile.displayName) : null;
+  // 내 개인 페이지 주소: /{username} (프로필을 불러온 뒤 사용 가능)
+  const myPagePath = userProfile?.username ? personalPagePath(userProfile.username) : null;
 
-  // 내 개인 페이지 링크(/{표시 이름}) 복사 → sonner 토스트로 안내
+  // 내 개인 페이지 링크(/{username}) 복사 → sonner 토스트로 안내
   const handleCopyLink = async () => {
     const url = `${window.location.origin}${myPagePath ?? MY_PAGE_PATH}`;
     try {
@@ -201,17 +201,17 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
             </AvatarFallback>
           </Avatar>
           )}
-          {/* 표시 이름: 가입 시 정해진 이름 (수정 불가, 공개 주소 /{표시 이름}에 사용) */}
-          <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
-            {userProfile?.displayName || getDisplayName(user)}
-          </h1>
-          {/* username(@아이디): 마이페이지에서는 마우스를 올리면 인라인 수정, 미리보기에서는 텍스트 */}
+          {/* 표시 이름: 마이페이지에서는 마우스를 올리면 인라인 수정 (중복 허용) */}
           {!preview && uid && userProfile ? (
-            <InlineUsername uid={uid} profile={userProfile} />
+            <InlineDisplayName uid={uid} profile={userProfile} />
           ) : (
-            userProfile?.username && (
-              <p className="mt-1 text-[14px] font-medium text-[#4E5968]">@{userProfile.username}</p>
-            )
+            <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
+              {userProfile?.displayName || getDisplayName(user)}
+            </h1>
+          )}
+          {/* username(@아이디): 공개 주소 /{username}, 가입 시 정해지고 수정 불가 */}
+          {userProfile?.username && (
+            <p className="mt-1 text-[14px] font-medium text-[#4E5968]">@{userProfile.username}</p>
           )}
           {/* 이메일: 마이페이지에서는 마우스를 올리면 인라인 수정 (미리보기에서는 숨김) */}
           {!preview &&

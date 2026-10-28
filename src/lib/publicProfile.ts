@@ -1,34 +1,28 @@
-import { getDoc } from "firebase/firestore";
-import { displayNameKey, displayNameRef } from "@/lib/profile";
 import { fetchUserProfile, type UserProfile } from "@/lib/auth";
+import { USERNAME_MAX, USERNAME_MIN, USERNAME_PATTERN, findUidByUsername, normalizeUsername } from "@/lib/profile";
 
-// 개인 페이지 주소: /{표시 이름} (한글 · 공백은 URL 인코딩)
-export function personalPagePath(displayName: string): string {
-  return `/${encodeURIComponent(displayName)}`;
+// 개인 페이지 주소: /{username}
+export function personalPagePath(username: string): string {
+  return `/${encodeURIComponent(username)}`;
 }
 
-function safeDecode(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-// 표시 이름으로 유저 조회 (Firestore, 실시간 구독 없음)
-// 1) 표시 이름 예약 장부 displayNames/{이름 키} → uid
+// username으로 유저 조회 (Firestore users 컬렉션 검색, 실시간 구독 없음)
+// 1) users에서 username 필드가 같은 문서 → uid
 // 2) users/{uid} 프로필
-// 찾지 못하면 null
-export async function getUserByDisplayName(displayName: string): Promise<UserProfile | null> {
-  const value = safeDecode(displayName).trim();
-  if (!value || value === "." || value === ".." || value.includes("/")) return null;
+// 형식이 맞지 않거나 찾지 못하면 null
+export async function getUserByUsername(username: string): Promise<UserProfile | null> {
+  let value: string;
+  try {
+    value = normalizeUsername(decodeURIComponent(username));
+  } catch {
+    return null;
+  }
+  if (value.length < USERNAME_MIN || value.length > USERNAME_MAX || !USERNAME_PATTERN.test(value)) return null;
 
   try {
-    const reservation = await getDoc(displayNameRef(displayNameKey(value)));
-    if (!reservation.exists()) return null;
-    return await fetchUserProfile(reservation.data().uid as string);
+    const uid = await findUidByUsername(value);
+    return uid ? await fetchUserProfile(uid) : null;
   } catch {
-    // 잘못된 문서 id 등은 '없는 유저'로 처리
     return null;
   }
 }
