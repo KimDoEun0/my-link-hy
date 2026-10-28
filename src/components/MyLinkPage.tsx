@@ -17,7 +17,6 @@ import {
   ProfileToast,
   AddLinkDialog,
   LinkCardSkeleton,
-  InlineDisplayName,
   InlineUsername,
   InlineEmail,
   InlineBio,
@@ -202,14 +201,10 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
             </AvatarFallback>
           </Avatar>
           )}
-          {/* 표시 이름: 마이페이지에서는 마우스를 올리면 인라인 수정 */}
-          {!preview && uid && userProfile ? (
-            <InlineDisplayName uid={uid} profile={userProfile} />
-          ) : (
-            <h1 className={`mt-4 text-[22px] font-bold tracking-tight text-[#191F28]`}>
-              {userProfile?.displayName || getDisplayName(user)}
-            </h1>
-          )}
+          {/* 표시 이름: 가입 시 정해진 이름 (수정 불가, 공개 주소 /{표시 이름}에 사용) */}
+          <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
+            {userProfile?.displayName || getDisplayName(user)}
+          </h1>
           {/* username(@아이디): 마이페이지에서는 마우스를 올리면 인라인 수정, 미리보기에서는 텍스트 */}
           {!preview && uid && userProfile ? (
             <InlineUsername uid={uid} profile={userProfile} />

@@ -47,11 +47,6 @@ function useUniqueCheck(kind: UniqueKind, uid: string, currentValue: string, typ
   };
 }
 
-// 표시 이름 중복 확인 (대소문자 · 공백 무시)
-export function useDisplayNameCheck(uid: string, currentName: string, typedName: string, enabled: boolean) {
-  return useUniqueCheck("displayName", uid, currentName, typedName, enabled);
-}
-
 // username 중복 확인 (소문자 · 앞의 @ 무시)
 export function useUsernameCheck(uid: string, currentUsername: string, typedUsername: string, enabled: boolean) {
   return useUniqueCheck("username", uid, currentUsername, typedUsername, enabled);

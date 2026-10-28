@@ -15,8 +15,6 @@ import { resizeImage } from "@/lib/image";
 import { inlineCancelButtonClass, inlineInputClass, inlineSaveButtonClass } from "./inlineEditStyles";
 import {
   BIO_MAX,
-  DISPLAY_NAME_MAX,
-  DisplayNameTakenError,
   SOCIAL_FIELDS,
   USERNAME_MAX,
   UsernameTakenError,
@@ -24,7 +22,7 @@ import {
   profileToFormValues,
 } from "@/lib/profile";
 import type { UserProfile } from "@/lib/auth";
-import { useDisplayNameCheck, useUsernameCheck } from "@/hooks/useDisplayNameCheck";
+import { useUsernameCheck } from "@/hooks/useDisplayNameCheck";
 import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { SocialIconBar } from "./SocialIconBar";
 
@@ -112,112 +110,6 @@ function FieldStatus({ tone, children }: { tone: "error" | "success" | "muted"; 
 
 // 포커스가 편집 영역 밖으로 나갔는지 (제목 ↔ 버튼 이동은 제외)
 const leftEditor = (e: React.FocusEvent<HTMLElement>) => !e.currentTarget.contains(e.relatedTarget as Node | null);
-
-// ───────────────────────── 표시 이름 인라인 수정 ─────────────────────────
-const nameSchema = z.object({ displayName: profileFormSchema.shape.displayName });
-
-export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
-  const [editing, setEditing] = useState(false);
-  const updateProfile = useUpdateProfile(uid, profile); // 저장 후 프로필 다시 조회 (TanStack Query)
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setError,
-    control,
-    formState: { errors, isSubmitting },
-  } = useForm<z.infer<typeof nameSchema>>({
-    resolver: zodResolver(nameSchema),
-    defaultValues: { displayName: profile.displayName },
-    mode: "onChange",
-  });
-  const typed = useWatch({ control, name: "displayName" }) ?? "";
-  const check = useDisplayNameCheck(uid, profile.displayName, typed, editing && !errors.displayName);
-
-  const start = () => {
-    reset({ displayName: profile.displayName }); // 항상 최신 이름으로 시작
-    check.reset();
-    setEditing(true);
-  };
-  const cancel = () => {
-    if (!isSubmitting) setEditing(false);
-  };
-
-  // 저장: 변경 사항이 없으면 Firestore에 쓰지 않고 수정 모드만 종료
-  const save = () => {
-    if (isSubmitting || check.taken) return;
-    void handleSubmit(async ({ displayName }) => {
-      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
-      try {
-        const changed = await updateProfile.mutateAsync({ displayName });
-        if (changed) toast.success("이름이 수정되었어요");
-      } catch (error) {
-        setEditing(true); // 실패: 이전 이름으로 되돌리고 입력한 이름 그대로 다시 수정 모드
-        if (error instanceof DisplayNameTakenError) check.markTaken();
-        else setError("root", { message: "이름을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
-      }
-    })();
-  };
-
-  if (!editing) {
-    return (
-      <h1 className="mt-4 text-[22px] font-bold tracking-tight text-[#191F28]">
-        <HoverEditTrigger label="표시 이름 수정" onEdit={start}>
-          {profile.displayName}
-        </HoverEditTrigger>
-      </h1>
-    );
-  }
-
-  return (
-    <form
-      aria-label="표시 이름 수정"
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        save();
-      }}
-      onKeyDown={(e) => {
-        if (e.key === "Escape") {
-          e.preventDefault();
-          cancel();
-        }
-      }}
-      onBlur={(e) => {
-        if (leftEditor(e)) save();
-      }}
-      className="mt-4 w-full max-w-[340px] space-y-1.5"
-    >
-      <div className="flex items-center gap-2">
-        <Input
-          autoFocus
-          maxLength={DISPLAY_NAME_MAX}
-          aria-label="표시 이름"
-          aria-invalid={!!errors.displayName || check.taken}
-          disabled={isSubmitting}
-          {...register("displayName")}
-          className={cn(inlineInputClass, "h-11 text-center text-[18px] font-bold")}
-        />
-        <EditActions saving={isSubmitting} onCancel={cancel} onSave={save} />
-      </div>
-      {errors.displayName ? (
-        <FieldStatus tone="error">{errors.displayName.message}</FieldStatus>
-      ) : check.taken ? (
-        <FieldStatus tone="error">이미 사용 중인 이름이에요. 다른 이름을 입력해주세요.</FieldStatus>
-      ) : check.checking ? (
-        <FieldStatus tone="muted">사용할 수 있는 이름인지 확인하고 있어요…</FieldStatus>
-      ) : check.available ? (
-        <FieldStatus tone="success">사용할 수 있는 이름이에요</FieldStatus>
-      ) : errors.root ? (
-        <FieldStatus tone="error">{errors.root.message}</FieldStatus>
-      ) : (
-        <FieldStatus tone="muted">
-          {typed.length}/{DISPLAY_NAME_MAX} · Enter 또는 바깥 클릭 시 저장 · Esc 취소
-        </FieldStatus>
-      )}
-    </form>
-  );
-}
 
 // ───────────────────────── username 인라인 수정 ─────────────────────────
 // 공개 주소용 고유 아이디: 영문 소문자 · 숫자 · _ 3~20자, 중복 불가 (usernames/{username})
