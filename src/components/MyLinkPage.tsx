@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { useMyLinkStore } from "@/lib/useMyLinkStore";
 import { initialProfile } from "@/data/initialData";
 import type { ContentBlock } from "@/types/mylink";
-import { addLink, deleteLink, getLinks, updateLink } from "@/lib/linksFirestore";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAddLink, useDeleteLink, useLinks, useUpdateLink } from "@/hooks/useLinks";
 import { getDoc } from "firebase/firestore";
 import { getDisplayName, signInWithGoogle, signOutUser, userProfileRef } from "@/lib/auth";
 import { useUser } from "@/hooks/useUser";
@@ -51,58 +52,21 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
   const [toastMessage, setToastMessage] = useState("");
   const [toastVisible, setToastVisible] = useState(false);
 
-  // 로그인 상태 + Firestore 프로필(users/{uid}) 실시간 동기화
+  // 로그인 상태 + Firestore 프로필(users/{uid}) 조회 (TanStack Query, 실시간 구독 없음)
   const { user, profile: userProfile, loading: authLoading } = useUser();
   const uid = user?.uid ?? null;
   const [signingIn, setSigningIn] = useState(false);
 
-  // 로그인한 유저의 링크 목록 (어느 uid의 목록인지 함께 저장해 계정 전환 시 섞이지 않게 함)
-  const [linkData, setLinkData] = useState<{ uid: string; links: ContentBlock[] } | null>(null);
-  const isCurrentUserLinks = !!uid && linkData?.uid === uid;
-  const links = isCurrentUserLinks ? linkData.links : [];
-  // 로그인했지만 아직 이 유저의 링크를 불러오는 중
-  const isLoading = !!uid && !isCurrentUserLinks;
-
-  const setLinks = (update: (prev: ContentBlock[]) => ContentBlock[]) =>
-    setLinkData((prev) => (prev ? { ...prev, links: update(prev.links) } : prev));
-
-  // 로그인하면 users/{uid}/links를 1회 조회 (링크 목록은 실시간 구독 아님, 변경 후 로컬 상태 갱신)
-  useEffect(() => {
-    if (!uid) return;
-    let ignore = false;
-
-    const loadLinks = async () => {
-      let loaded: ContentBlock[] = [];
-      try {
-        const snapshot = await getLinks(uid);
-        // 서버에 연결하지 못하면 getDocs는 오류 대신 캐시 결과를 반환하므로 별도로 안내
-        if (!ignore && snapshot.metadata.fromCache) {
-          setToastMessage("서버에 연결하지 못해 링크를 불러오지 못했어요.");
-          setToastVisible(true);
-        }
-        loaded = snapshot.docs.map((doc, index) => ({
-          id: doc.id,
-          type: "link",
-          title: doc.data().title ?? "",
-          url: doc.data().url,
-          iconName: "Favicon", // 저장된 링크는 Google 파비콘으로 표시
-          isVisible: true,
-          order: index,
-        }));
-      } catch {
-        if (!ignore) {
-          setToastMessage("저장된 링크를 불러오지 못했어요.");
-          setToastVisible(true);
-        }
-      }
-      if (!ignore) setLinkData({ uid, links: loaded });
-    };
-
-    loadLinks();
-    return () => {
-      ignore = true;
-    };
-  }, [uid]);
+  // 링크 목록: TanStack Query로 users/{uid}/links 1회 조회 (실시간 · 자동 재요청 없음)
+  // - uid가 쿼리 키에 들어가 계정이 바뀌면 캐시가 따로 관리됨
+  // - 추가 · 수정 · 삭제는 뮤테이션 성공 후 캐시만 갱신 (다시 조회하지 않음)
+  const queryClient = useQueryClient();
+  const linksQuery = useLinks(uid);
+  const links = linksQuery.data ?? [];
+  const isLoading = !!uid && linksQuery.isPending;
+  const addLinkMutation = useAddLink(uid);
+  const updateLinkMutation = useUpdateLink(uid);
+  const deleteLinkMutation = useDeleteLink(uid);
 
   const storeProfile = useMyLinkStore((state) => state.profile);
   const recordView = useMyLinkStore((state) => state.recordView);
@@ -193,7 +157,7 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
   const handleLogout = async () => {
     try {
       await signOutUser();
-      setLinkData(null);
+      queryClient.clear(); // 로그아웃하면 캐시(프로필 · 링크)를 비워 다음 로그인 때 다시 조회
       showToast("로그아웃되었어요");
     } catch {
       showToast("로그아웃에 실패했어요. 잠시 후 다시 시도해주세요.");
@@ -205,35 +169,23 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
     recordClick(blockId);
   };
 
-  // 새 링크 추가: 링크 객체 생성 → Firestore(users/{uid}/links)에 저장 → 로컬 상태 업데이트
+  // 새 링크 추가: useMutation → Firestore(users/{uid}/links) 저장 → 캐시 맨 앞에 추가
   // 저장 실패 시 예외를 그대로 던져 다이얼로그에서 오류를 표시
   const handleAddLink = async (newBlock: NewBlockInput) => {
-    if (!uid) throw new Error("로그인이 필요해요");
-    // 1. 링크 객체 생성
-    const link: NewBlockInput = { ...newBlock, isVisible: true };
-
-    // 2. Firestore에 저장 (생성된 문서 id를 링크 id로 사용)
-    const id = await addLink(uid, link);
-
-    // 3. 로컬 상태 업데이트 → 최신순 목록이므로 맨 앞에 추가하여 UI에 즉시 반영
-    setLinks((prev) => [{ ...link, id, order: -1 }, ...prev]);
+    await addLinkMutation.mutateAsync({ ...newBlock, isVisible: true });
   };
 
-  // 링크 수정: Firestore 문서(users/{uid}/links/{id}) 갱신 → 로컬 상태 업데이트 (실시간 구독 아님)
+  // 링크 수정: useMutation → Firestore 문서(users/{uid}/links/{id}) 갱신 → 캐시 갱신
   // 실패 시 예외를 그대로 던져 수정 폼에서 오류를 표시
   const handleUpdateLink = async (id: string, data: { title: string; url: string }) => {
-    if (!uid) throw new Error("로그인이 필요해요");
-    await updateLink(uid, id, data);
-    setLinks((prev) => prev.map((b) => (b.id === id ? { ...b, ...data } : b)));
+    await updateLinkMutation.mutateAsync({ id, data });
     showToast("링크가 수정되었어요 ✏️");
   };
 
-  // 링크 삭제: Firestore 문서 삭제 → 로컬 상태에서 제거
+  // 링크 삭제: useMutation → Firestore 문서 삭제 → 캐시에서 제거
   // 실패 시 예외를 그대로 던져 삭제 확인 모달에서 오류를 표시
   const handleDeleteLink = async (id: string) => {
-    if (!uid) throw new Error("로그인이 필요해요");
-    await deleteLink(uid, id);
-    setLinks((prev) => prev.filter((b) => b.id !== id));
+    await deleteLinkMutation.mutateAsync(id);
     showToast("항목이 삭제되었어요 🗑️");
   };
 
@@ -385,8 +337,23 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
           {isLoading &&
             Array.from({ length: 3 }, (_, i) => <LinkCardSkeleton key={`skeleton-${i}`} />)}
 
+          {/* 불러오기 실패: 안내 + 다시 시도 (자동 재요청이 없으므로 직접 다시 불러오기) */}
+          {linksQuery.isError && (
+            <div role="alert" className="py-8 text-center border border-dashed border-[#E5E8EB] rounded-none sm:rounded-[2px]">
+              <p className="text-[15px] font-semibold text-[#4E5968]">링크를 불러오지 못했어요</p>
+              <p className="mt-1 text-[13px] text-[#8B95A1]">{linksQuery.error.message}</p>
+              <button
+                type="button"
+                onClick={() => linksQuery.refetch()}
+                className="mt-3 text-[13px] font-semibold text-primary hover:underline"
+              >
+                다시 시도
+              </button>
+            </div>
+          )}
+
           {/* 불러온 링크가 없을 때 안내 */}
-          {!isLoading && visibleBlocks.length === 0 && (
+          {!isLoading && !linksQuery.isError && visibleBlocks.length === 0 && (
             <div className="py-10 text-center border border-dashed border-[#E5E8EB] rounded-none sm:rounded-[2px]">
               <p className="text-[15px] font-semibold text-[#4E5968]">아직 추가된 링크가 없어요</p>
               {!preview && (

@@ -20,10 +20,10 @@ import {
   SOCIAL_FIELDS,
   profileFormSchema,
   profileToFormValues,
-  saveProfileFields,
 } from "@/lib/profile";
 import type { UserProfile } from "@/lib/auth";
 import { useDisplayNameCheck } from "@/hooks/useDisplayNameCheck";
+import { useUpdateProfile } from "@/hooks/useUpdateProfile";
 import { SocialIconBar } from "./SocialIconBar";
 
 interface InlineFieldProps {
@@ -116,6 +116,7 @@ const nameSchema = z.object({ displayName: profileFormSchema.shape.displayName }
 
 export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
   const [editing, setEditing] = useState(false);
+  const updateProfile = useUpdateProfile(uid, profile); // 저장 후 프로필 다시 조회 (TanStack Query)
   const {
     register,
     handleSubmit,
@@ -144,11 +145,12 @@ export function InlineDisplayName({ uid, profile }: InlineFieldProps) {
   const save = () => {
     if (isSubmitting || check.taken) return;
     void handleSubmit(async ({ displayName }) => {
+      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
       try {
-        const changed = await saveProfileFields(uid, profile, { displayName });
-        setEditing(false);
+        const changed = await updateProfile.mutateAsync({ displayName });
         if (changed) toast.success("이름이 수정되었어요");
       } catch (error) {
+        setEditing(true); // 실패: 이전 이름으로 되돌리고 입력한 이름 그대로 다시 수정 모드
         if (error instanceof DisplayNameTakenError) check.markTaken();
         else setError("root", { message: "이름을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
       }
@@ -221,6 +223,7 @@ const emailSchema = z.object({ email: profileFormSchema.shape.email });
 
 export function InlineEmail({ uid, profile }: InlineFieldProps) {
   const [editing, setEditing] = useState(false);
+  const updateProfile = useUpdateProfile(uid, profile); // 저장 후 프로필 다시 조회 (TanStack Query)
   const email = profile.email ?? "";
   const {
     register,
@@ -246,11 +249,12 @@ export function InlineEmail({ uid, profile }: InlineFieldProps) {
   const save = () => {
     if (isSubmitting) return;
     void handleSubmit(async ({ email: next }) => {
+      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
       try {
-        const changed = await saveProfileFields(uid, profile, { email: next });
-        setEditing(false);
+        const changed = await updateProfile.mutateAsync({ email: next });
         if (changed) toast.success("이메일이 수정되었어요");
       } catch {
+        setEditing(true); // 실패: 이전 값으로 되돌리고 입력값 그대로 다시 수정 모드
         setError("root", { message: "이메일을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
       }
     })();
@@ -312,6 +316,7 @@ const bioSchema = z.object({ bio: profileFormSchema.shape.bio });
 
 export function InlineBio({ uid, profile }: InlineFieldProps) {
   const [editing, setEditing] = useState(false);
+  const updateProfile = useUpdateProfile(uid, profile); // 저장 후 프로필 다시 조회 (TanStack Query)
   const bio = profile.bio ?? "";
   const {
     register,
@@ -339,11 +344,12 @@ export function InlineBio({ uid, profile }: InlineFieldProps) {
   const save = () => {
     if (isSubmitting) return;
     void handleSubmit(async ({ bio: next }) => {
+      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
       try {
-        const changed = await saveProfileFields(uid, profile, { bio: next });
-        setEditing(false);
+        const changed = await updateProfile.mutateAsync({ bio: next });
         if (changed) toast.success("한 줄 소개가 수정되었어요");
       } catch {
+        setEditing(true); // 실패: 이전 값으로 되돌리고 입력값 그대로 다시 수정 모드
         setError("root", { message: "소개를 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
       }
     })();
@@ -420,6 +426,7 @@ const photoSchema = z.object({ photoURL: profileFormSchema.shape.photoURL });
 
 export function InlinePhoto({ uid, profile }: InlineFieldProps) {
   const [editing, setEditing] = useState(false);
+  const updateProfile = useUpdateProfile(uid, profile); // 저장 후 프로필 다시 조회 (TanStack Query)
   const fileRef = useRef<HTMLInputElement>(null);
   const current = profile.photoURL ?? "";
   const {
@@ -467,11 +474,12 @@ export function InlinePhoto({ uid, profile }: InlineFieldProps) {
   const save = () => {
     if (isSubmitting) return;
     void handleSubmit(async ({ photoURL }) => {
+      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
       try {
-        const changed = await saveProfileFields(uid, profile, { photoURL });
-        setEditing(false);
+        const changed = await updateProfile.mutateAsync({ photoURL });
         if (changed) toast.success("프로필 사진이 변경되었어요");
       } catch {
+        setEditing(true); // 실패: 이전 값으로 되돌리고 입력값 그대로 다시 수정 모드
         setError("root", { message: "사진을 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
       }
     })();
@@ -581,6 +589,7 @@ const socialsSchema = z.object({ socials: profileFormSchema.shape.socials });
 
 export function InlineSocials({ uid, profile }: InlineFieldProps) {
   const [editing, setEditing] = useState(false);
+  const updateProfile = useUpdateProfile(uid, profile); // 저장 후 프로필 다시 조회 (TanStack Query)
   const currentSocials = profileToFormValues(profile).socials;
   const hasAny = Object.values(currentSocials).some(Boolean);
   const {
@@ -607,11 +616,12 @@ export function InlineSocials({ uid, profile }: InlineFieldProps) {
   const save = () => {
     if (isSubmitting) return;
     void handleSubmit(async ({ socials }) => {
+      setEditing(false); // 낙관적 업데이트: 화면에 바로 반영하고 수정 모드 종료
       try {
-        const changed = await saveProfileFields(uid, profile, { socials });
-        setEditing(false);
+        const changed = await updateProfile.mutateAsync({ socials });
         if (changed) toast.success("소셜 링크가 수정되었어요");
       } catch {
+        setEditing(true); // 실패: 이전 값으로 되돌리고 입력값 그대로 다시 수정 모드
         setError("root", { message: "소셜 링크를 저장하지 못했어요. 잠시 후 다시 시도해주세요." });
       }
     })();

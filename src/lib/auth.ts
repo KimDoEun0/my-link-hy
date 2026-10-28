@@ -6,7 +6,7 @@ import {
   type Auth,
   type User,
 } from "firebase/auth";
-import { doc, runTransaction, serverTimestamp, type Timestamp } from "firebase/firestore";
+import { doc, getDoc, runTransaction, serverTimestamp, type Timestamp } from "firebase/firestore";
 import { app } from "@/lib/firebase";
 import { db } from "@/lib/firestore";
 import { DisplayNameTakenError, displayNameRef, reserveDisplayName } from "@/lib/profile";
@@ -54,7 +54,7 @@ export const userProfileRef = (uid: string) => doc(db, "users", uid);
 // - 첫 가입: 표시 이름 = 이메일 앞부분 (이미 쓰는 사람이 있으면 숫자를 붙임: kim → kim2), 이름 예약
 // - 이후 로그인: lastLoginAt만 갱신 (사용자가 수정한 이름 · 이메일 · 사진 · 소개는 유지)
 // - 이름 예약이 없는 기존 가입자: 현재 이름을 예약 장부(displayNames)에 등록
-// 화면 표시는 useUser 훅이 이 문서를 실시간 구독(onSnapshot)하여 처리
+// 화면 표시는 useUser 훅이 이 문서를 TanStack Query로 1회 조회하여 처리 (실시간 구독 없음)
 export async function saveUserProfile(user: User): Promise<void> {
   const ref = userProfileRef(user.uid);
 
@@ -103,4 +103,10 @@ export async function saveUserProfile(user: User): Promise<void> {
     }
     tx.update(ref, updates);
   });
+}
+
+// 프로필 1회 조회 (실시간 구독 아님): users/{uid} 문서, 없으면 null
+export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
+  const snapshot = await getDoc(userProfileRef(uid));
+  return snapshot.exists() ? (snapshot.data({ serverTimestamps: "estimate" }) as UserProfile) : null;
 }

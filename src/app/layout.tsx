@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,7 +29,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
+        {/* TanStack Query: 데이터 조회 · 추가 · 수정 · 삭제 (실시간 · 자동 재요청 없음) */}
+        <QueryProvider>{children}</QueryProvider>
         {/* sonner 토스트: 화면 상단 중앙 */}
         <Toaster position="top-center" />
       </body>

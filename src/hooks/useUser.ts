@@ -1,61 +1,62 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { onSnapshot } from "firebase/firestore";
-import { auth, saveUserProfile, userProfileRef, type UserProfile } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { auth, fetchUserProfile, saveUserProfile } from "@/lib/auth";
+import { queryKeys } from "./queryKeys";
 
-// 로그인 상태 + Firestore 프로필(users/{uid}) 실시간 동기화 훅
+// ───────────── 로그인 상태: Firebase 인증 상태를 useSyncExternalStore로 구독 ─────────────
+type AuthSnapshot = { user: User | null; loading: boolean };
+const SERVER_SNAPSHOT: AuthSnapshot = { user: null, loading: true };
+let authSnapshot: AuthSnapshot = SERVER_SNAPSHOT;
+const listeners = new Set<() => void>();
+let listening = false;
+
+function subscribeAuth(onChange: () => void) {
+  listeners.add(onChange);
+  if (!listening) {
+    listening = true;
+    onAuthStateChanged(auth, (user) => {
+      authSnapshot = { user, loading: false };
+      listeners.forEach((listener) => listener());
+    });
+  }
+  return () => {
+    listeners.delete(onChange);
+  };
+}
+
+// 로그인 상태 + Firestore 프로필(users/{uid}) 조회 훅 (TanStack Query, 실시간 구독 없음)
 // - user: Firebase 로그인 사용자 (비로그인 시 null)
-// - profile: users/{uid} 문서 (onSnapshot으로 실시간 반영, 불러오기 전에는 null)
+// - profile: users/{uid} 문서 (로그인 시 1회 조회, 프로필 수정 후 다시 조회)
 // - loading: 첫 로그인 상태 확인 전(새로고침 직후) true
 export function useUser() {
-  const [authState, setAuthState] = useState<{ user: User | null; loading: boolean }>({
-    user: null,
-    loading: true,
+  const { user, loading } = useSyncExternalStore(subscribeAuth, () => authSnapshot, () => SERVER_SNAPSHOT);
+  const uid = user?.uid ?? null;
+
+  // 1) 로그인하면 users/{uid} 저장 (첫 가입 설정 · lastLoginAt 갱신) — 로그인당 1회
+  const sync = useQuery({
+    queryKey: queryKeys.profileSync(uid),
+    queryFn: async () => {
+      await saveUserProfile(user as User);
+      return true;
+    },
+    enabled: !!user,
+    retry: 0,
   });
-  // 어느 uid의 프로필인지 함께 저장해 계정 전환 · 로그아웃 시 이전 프로필이 보이지 않게 함
-  const [profileState, setProfileState] = useState<{ uid: string; profile: UserProfile | null } | null>(null);
 
-  // 1) 로그인 상태 구독
-  useEffect(() => {
-    return onAuthStateChanged(auth, (user) => setAuthState({ user, loading: false }));
-  }, []);
+  // 2) 저장이 끝나면(실패해도) 프로필 1회 조회
+  const profileQuery = useQuery({
+    queryKey: queryKeys.profile(uid),
+    queryFn: () => fetchUserProfile(uid as string),
+    enabled: !!uid && (sync.isSuccess || sync.isError),
+  });
 
-  // 2) 로그인하면 users/{uid}에 프로필 저장 후, 해당 문서를 실시간 구독
-  const user = authState.user;
-  useEffect(() => {
-    if (!user) return;
-    let unsubscribe: (() => void) | undefined;
-    let cancelled = false;
-
-    // 저장이 실패해도(네트워크 등) 기존 문서 구독은 계속 진행
-    saveUserProfile(user)
-      .catch(() => undefined)
-      .finally(() => {
-        if (cancelled) return;
-        unsubscribe = onSnapshot(
-          userProfileRef(user.uid),
-          (snapshot) =>
-            setProfileState({
-              uid: user.uid,
-              profile: snapshot.exists()
-                ? (snapshot.data({ serverTimestamps: "estimate" }) as UserProfile)
-                : null,
-            }),
-          () => setProfileState({ uid: user.uid, profile: null })
-        );
-      });
-
-    return () => {
-      cancelled = true;
-      unsubscribe?.();
-    };
-  }, [user]);
-
-  const profile = user && profileState?.uid === user.uid ? profileState.profile : null;
-  // 로그인했지만 아직 프로필 문서를 받지 못한 상태
-  const profileLoading = !!user && profileState?.uid !== user.uid;
-
-  return { user, profile, loading: authState.loading, profileLoading };
+  return {
+    user,
+    profile: profileQuery.data ?? null,
+    loading,
+    profileLoading: !!uid && profileQuery.isPending,
+  };
 }
