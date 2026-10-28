@@ -9,7 +9,7 @@ export function normalizeUrl(value: string): string {
 }
 
 // 정규화된 URL이 실제로 열 수 있는 주소인지 확인
-function isValidLinkUrl(value: string): boolean {
+export function isValidLinkUrl(value: string): boolean {
   // 주소 중간에 공백이 있으면 잘못된 형식
   if (/\s/.test(value.trim())) return false;
   try {

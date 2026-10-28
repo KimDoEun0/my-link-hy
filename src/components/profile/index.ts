@@ -12,3 +12,4 @@ export * from "./FaviconImage";
 export * from "./LinkCardSkeleton";
 export * from "./LinkEditForm";
 export * from "./DeleteLinkDialog";
+export * from "./InlineProfileFields";

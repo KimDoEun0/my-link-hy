@@ -20,6 +20,7 @@ interface HeaderProps {
   // users/{uid} 프로필에 저장된 이름 · 이메일 (없으면 로그인 계정 정보 사용)
   displayName?: string;
   email?: string;
+  photoURL?: string; // users/{uid}의 프로필 이미지 (비어 있으면 기본 아이콘)
   authLoading: boolean; // 첫 로그인 상태 확인 중
   signingIn: boolean; // Google 로그인 진행 중
   previewHref: string; // 내 페이지 미리보기 주소
@@ -35,6 +36,7 @@ export function Header({
   user,
   displayName,
   email,
+  photoURL,
   authLoading,
   signingIn,
   previewHref,
@@ -67,8 +69,8 @@ export function Header({
               className="rounded-full outline-none cursor-pointer transition-shadow hover:ring-2 hover:ring-primary/20 focus-visible:ring-2 focus-visible:ring-primary/40 data-popup-open:ring-2 data-popup-open:ring-primary/40"
             >
               <Avatar className="size-9 border border-black/5 shadow-none">
-                {user.photoURL && (
-                  <AvatarImage src={user.photoURL} alt="내 프로필 사진" referrerPolicy="no-referrer" />
+                {(photoURL ?? user.photoURL) && (
+                  <AvatarImage src={(photoURL ?? user.photoURL) || ""} alt="내 프로필 사진" referrerPolicy="no-referrer" />
                 )}
                 <AvatarFallback className="size-full rounded-full bg-secondary flex items-center justify-center">
                   <UserIcon className="size-4 text-muted-foreground" />

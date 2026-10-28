@@ -4,6 +4,8 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, Check, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { inlineCancelButtonClass, inlineInputClass, inlineSaveButtonClass } from "./inlineEditStyles";
 import {
   linkEditSchema,
   normalizeUrl,
@@ -79,7 +81,7 @@ export function LinkEditForm({ initialTitle, initialUrl, onSave, onCancel }: Lin
       noValidate
       aria-label="링크 수정"
       aria-busy={isSubmitting}
-      className="w-full px-5 py-4 bg-white border border-primary ring-1 ring-primary/30 rounded-none sm:rounded-[2px] space-y-3"
+      className="w-full px-5 py-4 bg-white border border-[#8B95A1] rounded-none sm:rounded-[2px] space-y-3"
     >
       {/* 제목 */}
       <div className="space-y-1">
@@ -94,7 +96,7 @@ export function LinkEditForm({ initialTitle, initialUrl, onSave, onCancel }: Lin
           disabled={isSubmitting}
           aria-invalid={!!errors.title}
           {...register("title")}
-          className="h-10 text-[14px]"
+          className={cn(inlineInputClass, "h-10 text-[14px]")}
         />
         {errors.title && <FieldError message={errors.title.message} />}
       </div>
@@ -111,7 +113,7 @@ export function LinkEditForm({ initialTitle, initialUrl, onSave, onCancel }: Lin
           disabled={isSubmitting}
           aria-invalid={!!errors.url}
           {...register("url")}
-          className="h-10 text-[14px]"
+          className={cn(inlineInputClass, "h-10 text-[14px]")}
         />
         {errors.url && <FieldError message={errors.url.message} />}
       </div>
@@ -136,7 +138,7 @@ export function LinkEditForm({ initialTitle, initialUrl, onSave, onCancel }: Lin
             disabled={isSubmitting}
             title="취소"
             aria-label="취소"
-            className="size-8 rounded-[10px] flex items-center justify-center bg-secondary text-[#4E5968] hover:bg-[oklch(0.930_0.005_248)] transition-colors disabled:opacity-30"
+            className={inlineCancelButtonClass}
           >
             <X className="size-4" />
           </button>
@@ -148,7 +150,7 @@ export function LinkEditForm({ initialTitle, initialUrl, onSave, onCancel }: Lin
             disabled={isSubmitting}
             title="저장"
             aria-label="저장"
-            className="size-8 rounded-[10px] flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-60"
+            className={inlineSaveButtonClass}
           >
             {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
           </button>

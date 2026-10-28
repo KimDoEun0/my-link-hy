@@ -7,7 +7,8 @@ import { useMyLinkStore } from "@/lib/useMyLinkStore";
 import { initialProfile } from "@/data/initialData";
 import type { ContentBlock } from "@/types/mylink";
 import { addLink, deleteLink, getLinks, updateLink } from "@/lib/linksFirestore";
-import { getDisplayName, signInWithGoogle, signOutUser } from "@/lib/auth";
+import { getDoc } from "firebase/firestore";
+import { getDisplayName, signInWithGoogle, signOutUser, userProfileRef } from "@/lib/auth";
 import { useUser } from "@/hooks/useUser";
 import { Header, Landing } from "@/components/auth";
 import {
@@ -16,6 +17,12 @@ import {
   ProfileToast,
   AddLinkDialog,
   LinkCardSkeleton,
+  InlineDisplayName,
+  InlineEmail,
+  InlineBio,
+  InlinePhoto,
+  InlineSocials,
+  SocialIconBar,
   type NewBlockInput,
 } from "@/components/profile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -162,7 +169,10 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
     );
     try {
       const signedIn = await signInWithGoogle();
-      showToast(`${getDisplayName(signedIn)}님, 환영해요 👋`);
+      // 사용자가 수정한 표시 이름(users/{uid})으로 인사, 첫 가입이라 아직 없으면 이메일 앞부분
+      const saved = await getDoc(userProfileRef(signedIn.uid)).catch(() => null);
+      const name = (saved?.data()?.displayName as string | undefined) || getDisplayName(signedIn);
+      showToast(`${name}님, 환영해요 👋`);
     } catch (error) {
       const code = error instanceof FirebaseError ? error.code : "";
       // 사용자가 팝업을 닫은 경우는 안내하지 않음
@@ -261,6 +271,7 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
             user={user}
             displayName={userProfile?.displayName}
             email={userProfile?.email}
+            photoURL={userProfile ? userProfile.photoURL : user?.photoURL ?? ""}
             authLoading={authLoading}
             signingIn={signingIn}
             previewHref={PREVIEW_PATH}
@@ -286,10 +297,15 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
           <>
         {/* 상단 0. 마이페이지 프로필: Firestore users/{uid} 문서의 유저 정보 (실시간 반영) */}
         <section aria-label="마이페이지 프로필" className="flex flex-col items-center text-center pt-4 pb-5">
+          {/* 프로필 사진: 마이페이지에서는 마우스를 올리면 인라인 변경 */}
+          {!preview && uid && userProfile ? (
+            <InlinePhoto uid={uid} profile={userProfile} />
+          ) : (
           <Avatar size="2xl" className="ring-4 ring-white shadow-[0_2px_10px_rgba(0,0,0,0.12)] bg-secondary overflow-hidden border-0">
-            {(userProfile?.photoURL || user.photoURL) && (
+            {/* 프로필 이미지: users/{uid}의 photoURL (비워 두면 기본 아이콘) */}
+            {(userProfile ? userProfile.photoURL : user.photoURL) && (
               <AvatarImage
-                src={userProfile?.photoURL || user.photoURL || ""}
+                src={(userProfile ? userProfile.photoURL : user.photoURL) || ""}
                 alt="프로필 사진"
                 referrerPolicy="no-referrer"
                 className="size-full object-cover"
@@ -299,18 +315,47 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
               <User className="size-10 text-muted-foreground" />
             </AvatarFallback>
           </Avatar>
+          )}
           {!preview && (
             <span className="mt-4 text-[12px] font-semibold text-primary bg-accent px-2.5 py-0.5 rounded-full">
               마이페이지
             </span>
           )}
-          <h1 className={`${preview ? "mt-4" : "mt-2"} text-[22px] font-bold tracking-tight text-[#191F28]`}>
-            {userProfile?.displayName || getDisplayName(user)}
-          </h1>
-          {/* 이메일 · 가입 정보는 본인에게만 표시 (미리보기에서는 숨김) */}
-          {!preview && <p className="mt-1 text-[13px] text-[#8B95A1]">{userProfile?.email || user.email}</p>}
+          {/* 표시 이름: 마이페이지에서는 마우스를 올리면 인라인 수정 */}
+          {!preview && uid && userProfile ? (
+            <InlineDisplayName uid={uid} profile={userProfile} />
+          ) : (
+            <h1 className={`${preview ? "mt-4" : "mt-2"} text-[22px] font-bold tracking-tight text-[#191F28]`}>
+              {userProfile?.displayName || getDisplayName(user)}
+            </h1>
+          )}
+          {/* 이메일: 마이페이지에서는 마우스를 올리면 인라인 수정 (미리보기에서는 숨김) */}
+          {!preview &&
+            (uid && userProfile ? (
+              <InlineEmail uid={uid} profile={userProfile} />
+            ) : (
+              <p className="mt-1 text-[13px] text-[#8B95A1]">{user.email}</p>
+            ))}
+          {/* 한 줄 소개 (PRD 4.1, 줄바꿈 허용): 마이페이지에서는 마우스를 올리면 인라인 수정 */}
+          {!preview && uid && userProfile ? (
+            <InlineBio uid={uid} profile={userProfile} />
+          ) : (
+            userProfile?.bio && (
+              <p className="mt-3 max-w-xs text-[15px] leading-relaxed text-[#4E5968] whitespace-pre-line break-keep">
+                {userProfile.bio}
+              </p>
+            )
+          )}
+          {/* 소셜 미디어 아이콘 바: 입력한 플랫폼만 표시, 마이페이지에서는 마우스를 올리면 인라인 수정 */}
+          {!preview && uid && userProfile ? (
+            <InlineSocials uid={uid} profile={userProfile} />
+          ) : (
+            <div className="mt-1">
+              <SocialIconBar socials={userProfile?.socials} />
+            </div>
+          )}
           {!preview && userProfile?.createdAt && (
-            <p className="mt-2.5 text-[13px] text-[#4E5968]">
+            <p className="mt-3 text-[13px] text-[#8B95A1]">
               {formatDate(userProfile.createdAt)} 가입
               {userProfile.lastLoginAt && <> · 최근 로그인 {formatDate(userProfile.lastLoginAt)}</>}
             </p>
