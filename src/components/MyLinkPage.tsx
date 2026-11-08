@@ -141,8 +141,8 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
       )}
 
       <main className="flex-1 w-full px-4 py-6 sm:py-8 flex justify-center">
-      {/* 📱 중앙 컬럼 컨테이너 (max-w-[460px]) */}
-      <div className="w-full max-w-[460px] flex flex-col space-y-4">
+      {/* 📱 중앙 컬럼 컨테이너: 마이페이지는 max-w-[460px], 비로그인 랜딩은 넓게(max-w-5xl) */}
+      <div className={`w-full ${!authLoading && !user ? "max-w-5xl" : "max-w-[460px]"} flex flex-col space-y-4`}>
         {preview && user && (
           // 미리보기 안내 바 (헤더 대신 표시)
           <div

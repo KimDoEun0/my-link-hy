@@ -198,3 +198,23 @@ body {
     @apply font-sans;
   }
 }
+
+/* 랜딩 페이지: 배경 아이콘이 위아래로 천천히 떠다니는 애니메이션 */
+@keyframes mylink-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}
+.animate-float {
+  animation: mylink-float 6s ease-in-out infinite;
+}
+/* 동작 줄이기 설정 시 애니메이션 끔 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float {
+    animation: none;
+  }
+}
