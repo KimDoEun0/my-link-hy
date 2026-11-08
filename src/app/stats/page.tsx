@@ -176,9 +176,9 @@ export default function StatsPage() {
         </div>
 
         <div className="relative w-full max-w-[680px] flex flex-col gap-5">
-          {/* 페이지 제목: 그라디언트 텍스트 + 서브타이틀 */}
+          {/* 페이지 제목 + 서브타이틀 */}
           <div>
-            <h1 className="text-[30px] font-extrabold tracking-tight bg-gradient-to-r from-primary to-sky-400 bg-clip-text text-transparent">
+            <h1 className="text-[30px] font-extrabold tracking-tight text-[#191F28]">
               통계 대시보드
             </h1>
             <p className="mt-1.5 text-[14px] text-[#6B7684]">내 링크가 얼마나 클릭됐는지 한눈에 확인해요</p>
@@ -271,62 +271,40 @@ export default function StatsPage() {
                   </div>
                 ) : (
                   <>
-                    <ChartContainer
-                      config={chartConfig}
-                      className="aspect-auto w-full"
-                      style={{ height: Math.max(140, chartData.length * 48) }}
-                    >
-                      <BarChart
-                        data={chartData}
-                        layout="vertical"
-                        margin={{ left: 0, right: 40, top: 0, bottom: 0 }}
-                        barCategoryGap={12}
-                      >
-                        {/* 막대 색: Primary → 하늘색 가로 그라디언트 */}
-                        <defs>
-                          <linearGradient id="clicksGradient" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0%" stopColor="var(--color-clicks)" stopOpacity={0.85} />
-                            <stop offset="100%" stopColor="#38BDF8" stopOpacity={1} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid horizontal={false} vertical={false} />
+                    <ChartContainer config={chartConfig} className="aspect-auto h-[280px] w-full">
+                      {/* 세로 막대 차트: 가로축 = 링크, 세로축 = 클릭 수 */}
+                      <BarChart data={chartData} margin={{ left: 0, right: 0, top: 28, bottom: 0 }} barCategoryGap="24%">
+                        <CartesianGrid vertical={false} horizontal={false} />
                         {/* 축: 선 · 눈금 제거 (깔끔하게) */}
                         <XAxis
-                          type="number"
-                          dataKey="clicks"
-                          allowDecimals={false}
-                          hide
-                          domain={[0, (max: number) => Math.max(max, 1)]}
-                        />
-                        <YAxis
-                          type="category"
                           dataKey="title"
-                          width={96}
                           tickLine={false}
                           axisLine={false}
-                          tickMargin={8}
-                          tick={{ fill: "#4E5968", fontSize: 13, fontWeight: 500 }}
-                          tickFormatter={(v: string) => (v.length > 7 ? `${v.slice(0, 7)}…` : v)}
+                          tickMargin={10}
+                          interval={0}
+                          tick={{ fill: "#4E5968", fontSize: 13, fontWeight: 600 }}
+                          tickFormatter={(v: string) => (v.length > 6 ? `${v.slice(0, 6)}…` : v)}
                         />
+                        <YAxis hide allowDecimals={false} domain={[0, (max: number) => Math.max(max, 1)]} />
                         <ChartTooltip
                           cursor={{ fill: "rgba(49,130,246,0.06)", radius: 8 }}
                           content={(props) => <ClickTooltip {...props} totalClicks={totalClicks} />}
                         />
-                        {/* 막대 끝만 둥글게 (기준선 쪽은 직각), 등장 애니메이션 */}
+                        {/* 막대 윗부분만 둥글게 (기준선 쪽은 직각), 등장 애니메이션 */}
                         <Bar
                           dataKey="clicks"
-                          fill="url(#clicksGradient)"
-                          radius={[0, 6, 6, 0]}
-                          maxBarSize={24}
+                          fill="var(--color-clicks)"
+                          radius={[6, 6, 0, 0]}
+                          maxBarSize={56}
                           animationDuration={900}
                           animationEasing="ease-out"
                         >
                           <LabelList
                             dataKey="clicks"
-                            position="right"
-                            offset={10}
-                            className="fill-[#4E5968]"
-                            fontSize={12}
+                            position="top"
+                            offset={8}
+                            className="fill-[#191F28]"
+                            fontSize={14}
                             fontWeight={700}
                           />
                         </Bar>
@@ -353,7 +331,7 @@ export default function StatsPage() {
                             {/* 전체 대비 비율 막대 */}
                             <span className="mt-1.5 block h-1.5 w-full overflow-hidden rounded-full bg-[#F2F4F6]">
                               <span
-                                className="block h-full rounded-full bg-gradient-to-r from-primary to-sky-400 transition-[width] duration-700"
+                                className="block h-full rounded-full bg-primary transition-[width] duration-700"
                                 style={{ width: `${share(item.clicks)}%` }}
                               />
                             </span>
