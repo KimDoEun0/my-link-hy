@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Copy, ExternalLink, Eye, LogOut, User as UserIcon, UserRound } from "lucide-react";
+import { BarChart3, Copy, ExternalLink, Eye, LogOut, User as UserIcon, UserRound } from "lucide-react";
 import type { User } from "firebase/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -135,6 +135,15 @@ export function Header({
                   내 페이지로 이동
                 </DropdownMenuItem>
               )}
+
+              {/* 통계 페이지 (/stats) */}
+              <DropdownMenuItem
+                render={<Link href="/stats" />}
+                className="px-2.5 py-2 text-[14px] text-[#333D4B] cursor-pointer"
+              >
+                <BarChart3 aria-hidden="true" />
+                통계
+              </DropdownMenuItem>
 
               {/* 내 페이지 미리보기 (새 탭) */}
               <DropdownMenuItem
