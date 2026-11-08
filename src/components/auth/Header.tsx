@@ -69,8 +69,12 @@ export function Header({
     // 화면 전체 너비 헤더: 왼쪽 로고 · 오른쪽 '내 페이지' 버튼 + 아바타, 아래 구분선
     <header className="w-full h-14 bg-white border-b border-[#E5E8EB]">
       <div className="mx-auto max-w-5xl h-full px-4 sm:px-6 flex items-center justify-between gap-3">
-      {/* 왼쪽 로고 */}
-      <Link href="/" className="text-[18px] font-extrabold tracking-tight text-primary select-none">
+      {/* 왼쪽 로고: 누르면 루트 페이지(/)로 이동 */}
+      <Link
+        href="/"
+        title="MyLink 홈으로"
+        className="text-[18px] font-extrabold tracking-tight text-primary select-none transition-opacity hover:opacity-75"
+      >
         MyLink
       </Link>
 
