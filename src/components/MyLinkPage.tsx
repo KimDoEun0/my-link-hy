@@ -51,7 +51,7 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
   // 링크 목록: TanStack Query로 users/{uid}/links 1회 조회 (실시간 · 자동 재요청 없음)
   // - uid가 쿼리 키에 들어가 계정이 바뀌면 캐시가 따로 관리됨
   // - 추가 · 수정 · 삭제는 뮤테이션 성공 후 캐시만 갱신 (다시 조회하지 않음)
-  const linksQuery = useLinks(uid);
+  const linksQuery = useLinks(uid, { owner: true });
   const links = linksQuery.data ?? [];
   const isLoading = !!uid && linksQuery.isPending;
   const addLinkMutation = useAddLink(uid);
@@ -60,7 +60,6 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
 
   const storeProfile = useMyLinkStore((state) => state.profile);
   const recordView = useMyLinkStore((state) => state.recordView);
-  const recordClick = useMyLinkStore((state) => state.recordClick);
 
   // SSR Hydration Fallback: Use initial seed before client-side mount
   const profile = mounted ? storeProfile : initialProfile;
@@ -91,11 +90,6 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
     } catch {
       toast.error("링크를 복사하지 못했어요", { description: "브라우저의 클립보드 권한을 확인해주세요." });
     }
-  };
-
-  const handleLinkClick = (blockId: string, url?: string) => {
-    if (!url) return;
-    recordClick(blockId);
   };
 
   // 새 링크 추가: useMutation → Firestore(users/{uid}/links) 저장 → 캐시 맨 앞에 추가
@@ -309,10 +303,11 @@ export function MyLinkPage({ preview = false }: MyLinkPageProps) {
                 url={block.url}
                 badge={block.badge}
                 iconName={block.iconName}
-                onClick={handleLinkClick}
                 onUpdate={handleUpdateLink}
                 onDelete={handleDeleteLink}
                 readonly={preview}
+                // 클릭 수: 편집 화면(마이페이지)에서만 표시, 여기서 누른 클릭은 집계하지 않음
+                clickCount={preview ? undefined : block.clickCount ?? 0}
               />
             );
           })}

@@ -32,6 +32,7 @@ export interface ContentBlock {
   badge?: string;
   isVisible: boolean;
   order: number;
+  clickCount?: number; // 클릭 수 (Firestore links 문서의 clickCount, 기본값 0)
 }
 
 export type PresetThemeId =

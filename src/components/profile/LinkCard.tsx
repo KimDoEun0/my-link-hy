@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { MousePointerClick, Pencil, Trash2 } from "lucide-react";
 import { getBlockIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { FaviconImage } from "./FaviconImage";
@@ -27,6 +27,8 @@ export interface LinkCardProps {
   onDelete?: (id: string) => Promise<void>;
   // 읽기 전용: 수정 · 삭제 버튼과 수정 폼 · 삭제 모달을 숨기고 링크 클릭만 가능 (공개 프로필 페이지)
   readonly?: boolean;
+  // 클릭 수 (지정 시 제목 아래에 아이콘 + 숫자로 표시, 마이페이지에서만 전달)
+  clickCount?: number;
 }
 
 // 링크 카드: 수정(인라인 편집) · 삭제(확인 모달) 상태를 카드마다 독립적으로 관리
@@ -44,6 +46,7 @@ export function LinkCard({
   onUpdate,
   onDelete,
   readonly = false,
+  clickCount,
 }: LinkCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -114,6 +117,17 @@ export function LinkCard({
             </span>
             {subtitle && (
               <p className="text-[12px] text-muted-foreground truncate mt-0.5">{subtitle}</p>
+            )}
+            {clickCount !== undefined && (
+              // 아이콘 + 숫자만 표시 (화면 낭독기용 이름은 "클릭 N회")
+              <p
+                className="mt-0.5 flex items-center justify-center gap-1 text-[12px] text-[#8B95A1]"
+                aria-label={`클릭 ${clickCount}회`}
+                title={`클릭 ${clickCount.toLocaleString()}회`}
+              >
+                <MousePointerClick className="size-3.5" aria-hidden="true" />
+                {clickCount.toLocaleString()}
+              </p>
             )}
           </div>
         </a>

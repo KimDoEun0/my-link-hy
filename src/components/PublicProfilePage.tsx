@@ -9,7 +9,7 @@ import { LinkCard, LinkCardSkeleton, SocialIconBar } from "@/components/profile"
 import { fetchUserProfile } from "@/lib/auth";
 import { personalPagePath } from "@/lib/publicProfile";
 import { useUser } from "@/hooks/useUser";
-import { useLinks } from "@/hooks/useLinks";
+import { useLinkClickMutation, useLinks } from "@/hooks/useLinks";
 import { useAuthActions } from "@/hooks/useAuthActions";
 import { queryKeys } from "@/hooks/queryKeys";
 
@@ -30,6 +30,8 @@ export function PublicProfilePage({ uid }: { uid: string }) {
     queryFn: () => fetchUserProfile(uid),
   });
   const linksQuery = useLinks(uid);
+  // 방문자 클릭 수 저장 (편집 모드가 아닌 공개 페이지에서만 집계, 클릭 수는 화면에 표시하지 않음)
+  const linkClick = useLinkClickMutation(uid);
   const profile = profileQuery.data;
   const links = linksQuery.data ?? [];
 
@@ -138,6 +140,9 @@ export function PublicProfilePage({ uid }: { uid: string }) {
                 url={block.url}
                 iconName={block.iconName}
                 readonly
+                onClick={(id, url) => {
+                  if (url) linkClick.recordClick(id);
+                }}
               />
             ))}
           </div>

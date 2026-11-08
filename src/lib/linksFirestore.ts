@@ -8,6 +8,8 @@ import {
   query,
   serverTimestamp,
   updateDoc,
+  increment,
+  writeBatch,
   type QuerySnapshot,
 } from "firebase/firestore";
 import { db } from "@/lib/firestore";
@@ -31,11 +33,14 @@ export async function getLinks(uid: string): Promise<QuerySnapshot> {
   return getDocs(query(linksCollection(uid), orderBy("createdAt", "desc")));
 }
 
-// 링크 추가: users/{uid}/links에 새 문서 생성 (title, url, createdAt만 저장)
+// 링크 추가: users/{uid}/links에 새 문서 생성 (title, url, createdAt, updatedAt, clickCount: 0 저장)
+// updatedAt은 마지막 수정 시각으로, 만들 때는 createdAt과 같은 시각
 export async function addLink(uid: string, link: NewLinkData): Promise<string> {
   const ref = await addDoc(linksCollection(uid), {
     ...stripUndefined({ title: link.title, url: link.url }),
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    clickCount: 0,
   });
   return ref.id;
 }
@@ -56,4 +61,28 @@ export async function updateLink(
     url: data.url,
     updatedAt: serverTimestamp(),
   });
+}
+
+// 링크 클릭 수 1 증가: users/{uid}/links/{linkId}의 clickCount
+// increment(1)로 서버에서 원자적으로 더해 동시에 여러 번 눌러도 누락되지 않음
+export async function incrementLinkClick(uid: string, linkId: string): Promise<void> {
+  await updateDoc(doc(linksCollection(uid), linkId), { clickCount: increment(1) });
+}
+
+// 예전에 만든 링크에 빠진 필드 채우기 (본인 마이페이지에서만 호출, 빠진 문서가 없으면 쓰지 않음)
+// - clickCount 없음 → 0
+// - updatedAt 없음 → createdAt (한 번도 수정하지 않은 링크)
+export async function backfillLinkFields(uid: string, snapshot: QuerySnapshot): Promise<void> {
+  const batch = writeBatch(db);
+  let count = 0;
+  for (const d of snapshot.docs) {
+    const data = d.data();
+    const patch: Record<string, unknown> = {};
+    if (data.clickCount === undefined) patch.clickCount = 0;
+    if (data.updatedAt === undefined) patch.updatedAt = data.createdAt ?? serverTimestamp();
+    if (Object.keys(patch).length === 0) continue;
+    batch.update(doc(linksCollection(uid), d.id), patch);
+    count++;
+  }
+  if (count > 0) await batch.commit();
 }
