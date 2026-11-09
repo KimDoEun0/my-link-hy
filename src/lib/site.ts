@@ -20,7 +20,7 @@ export const BASE_OPEN_GRAPH = {
 
 // 기본 OG 이미지(app/opengraph-image.tsx)
 // - openGraph를 직접 지정한 하위 페이지는 루트 이미지를 물려받지 못하므로 명시적으로 연결
-export const DEFAULT_OG_IMAGE = { url: "/opengraph-image", width: 1200, height: 630, alt: "MyLink - Development in One Link" };
+export const DEFAULT_OG_IMAGE = { url: "/opengraph-image", width: 1200, height: 630, alt: "MyLink - 흩어진 링크를 하나의 페이지로" };
 
 export const SITE_KEYWORDS = [
   "마이링크",
