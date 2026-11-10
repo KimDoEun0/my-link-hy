@@ -1,36 +1,38 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 마이링크 (MyLink)
 
-## Getting Started
+AI 코딩으로 만든 개발자를 위한 멀티링크 서비스
 
-First, run the development server:
+## 프로젝트 소개
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+GitHub · 블로그 · 포트폴리오처럼 흩어져 있는 링크를 한 페이지에 모아서 관리하고 공유할 수 있는 서비스입니다.
+한양대학교 「아이디어를 현실로 - 바이브 코딩」 과정에서 AI 도구를 활용하여 제작했습니다.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 주요 기능
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- 구글 소셜 로그인
+- 프로필 관리 (이름, 소개, 프로필 사진)
+- 링크 CRUD (추가, 수정, 삭제) 및 공개/비공개 설정
+- 공개 프로필 페이지 (`/username` 주소로 누구나 접속)
+- 클릭 통계 (링크별 클릭 수 대시보드)
+- 랜딩 페이지 (서비스 소개)
+- 반응형 디자인 (토스 디자인 시스템 참고)
+- Vercel 배포
+- OG 이미지 · 메타 태그 (카카오톡 미리보기, 프로필별 동적 OG 이미지)
+- SEO (sitemap, robots, 검색엔진 등록)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 사용한 도구
 
-## Learn More
+- Next.js (웹사이트 만드는 도구)
+- Firebase (로그인, 데이터 저장)
+- Vercel (전 세계에 배포)
+- AI 도구 (Antigravity · Gemini, Claude Code)
 
-To learn more about Next.js, take a look at the following resources:
+## 배포
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Live Demo: https://my-link-hy-gq9k.vercel.app
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 배운 점
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- AI에게 물어보면서 코딩하기
+- 웹사이트 만들고 배포하기
+- 로그인 기능 구현하기
